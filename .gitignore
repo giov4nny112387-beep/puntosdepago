@@ -1,0 +1,10 @@
+# Nunca subir datos sensibles ni credenciales (por seguridad)
+credenciales_service_account.json
+*.json
+*.xlsx
+*.xls
+*.docx
+~$*
+__pycache__/
+*.pyc
+data/
