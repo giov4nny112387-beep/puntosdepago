@@ -1,0 +1,1947 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Programaciones Puntos de Pago Alkosto</title>
+    <!-- Librerías -->
+    <script src="libs/xlsx.full.min.js"></script>
+    <script src="libs/chart.min.js"></script>
+    <script src="libs/html2pdf.bundle.min.js"></script>
+    <link rel="stylesheet" href="css/app.css">
+    <!-- ============================================================
+         ESTILOS DEL LAYOUT V26 (autónomos: no dependen de css/app.css)
+         Cubren las clases del rediseño: sidebar, toolbar, vistas, tarjetas.
+    ============================================================ -->
+    <style>
+        /* ---- Barra de controles superior ---- */
+        .top-toolbar {
+            display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+            background: #ffffff; padding: 12px 18px; margin: 10px;
+            border: 1px solid #dfe6e9; border-radius: 10px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.06);
+        }
+        .top-toolbar .control-item {
+            display: flex; align-items: center; gap: 8px; width: auto; margin: 0;
+        }
+        .top-toolbar .control-item label { white-space: nowrap; font-size: 13px; color: #2c3e50; }
+        .top-toolbar input[type="date"], .top-toolbar input[type="file"], .top-toolbar select {
+            font-size: 13px; padding: 6px 8px; border: 1px solid #cfd8dc; border-radius: 6px; background: #fff;
+        }
+
+        /* ---- Estructura general: menú lateral + contenido ---- */
+        .app-shell { display: flex; align-items: stretch; gap: 0; margin: 0 10px 14px 10px; }
+        .sidebar {
+            width: 235px; min-width: 235px; background: #2c3e50; border-radius: 10px;
+            padding: 12px 8px; align-self: flex-start; position: sticky; top: 10px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+        }
+        .sidebar-nav { display: flex; flex-direction: column; gap: 4px; }
+        .nav-item {
+            display: block; width: 100%; text-align: left; background: transparent;
+            color: #ecf0f1; border: none; padding: 10px 12px; border-radius: 7px;
+            font-size: 13px; cursor: pointer; transition: background 0.15s; font-family: inherit;
+        }
+        .nav-item:hover { background: rgba(255,255,255,0.12); }
+        .nav-item.active { background: #e67e22; color: #fff; font-weight: bold; }
+        .content { flex: 1; min-width: 0; padding: 4px 0 4px 16px; }
+
+        /* ---- Vistas (solo se muestra la activa) ---- */
+        .view-section { display: none; background: #ffffff; border: 1px solid #dfe6e9;
+                        border-radius: 10px; padding: 18px; box-shadow: 0 4px 15px rgba(0,0,0,0.06); }
+        .view-section.active { display: block; }
+        .view-desc { color: #7f8c8d; font-size: 13px; margin: 4px 0 14px 0; }
+
+        /* ---- Panel plegable de carga de matriz ---- */
+        .carga-matriz-toggle { margin: 10px 0; }
+        .carga-toggle-btn {
+            padding: 9px 16px; background: #34495e; color: #fff; border: none; border-radius: 6px;
+            cursor: pointer; font-size: 13px; font-weight: bold; font-family: inherit;
+        }
+        .carga-toggle-btn:hover { background: #22313f; }
+        .carga-panel {
+            display: flex; gap: 24px; flex-wrap: wrap; align-items: center;
+            background: #f8f9fa; border: 1px dashed #b0bec5; border-radius: 8px;
+            padding: 12px 16px; margin-top: 8px;
+        }
+        .carga-panel .control-item { display: flex; align-items: center; gap: 8px; width: auto; }
+
+        /* ---- Tarjetas de métricas / desempeño ---- */
+        .ia-cards { display: flex; gap: 12px; flex-wrap: wrap; }
+
+        /* ---- Modo Pantalla Completa: oculta el menú lateral ---- */
+        .app-shell.fullscreen-mode .sidebar { display: none; }
+        .app-shell.fullscreen-mode .content { padding-left: 0; }
+        #btnFullScreen {
+            padding: 8px 16px; background: #2c3e50; color: #fff; border: none; border-radius: 6px;
+            cursor: pointer; font-weight: bold; font-size: 12px; font-family: inherit;
+        }
+        #btnFullScreen:hover { background: #1a252f; }
+
+        /* ---- Responsive: en pantallas angostas el menú pasa arriba ---- */
+        @media (max-width: 900px) {
+            .app-shell { flex-direction: column; }
+            .sidebar { width: auto; min-width: 0; position: static; }
+            .sidebar-nav { flex-direction: row; flex-wrap: wrap; }
+            .nav-item { width: auto; }
+            .content { padding: 12px 0 0 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ============================================================
+         MÓDULO DE INGRESO (login por tienda + rol + usuario/clave)
+    ============================================================ -->
+    <div id="loginOverlay" style="position:fixed; inset:0; z-index:9999; background:linear-gradient(135deg,#2c3e50,#1a252f); display:flex; align-items:center; justify-content:center;">
+        <div style="background:#fff; width:360px; max-width:92vw; border-radius:14px; box-shadow:0 12px 40px rgba(0,0,0,0.35); padding:26px 26px 22px 26px;">
+            <h2 style="margin:0 0 4px 0; color:#2c3e50; font-size:19px; text-align:center;">Programaciones Puntos de Pago</h2>
+            <p style="margin:0 0 18px 0; color:#7f8c8d; font-size:12px; text-align:center;">ALKOSTO · Ingreso</p>
+
+            <label style="font-size:12px; color:#2c3e50; font-weight:bold;">Tienda</label>
+            <select id="loginTienda" style="width:100%; padding:9px; margin:4px 0 12px 0; border:1px solid #cfd8dc; border-radius:7px; font-size:14px;"></select>
+
+            <label style="font-size:12px; color:#2c3e50; font-weight:bold;">Rol</label>
+            <select id="loginRol" style="width:100%; padding:9px; margin:4px 0 12px 0; border:1px solid #cfd8dc; border-radius:7px; font-size:14px;">
+                <option value="ADMINISTRADOR">Administrador</option>
+                <option value="MARCACIONES">Marcaciones</option>
+                <option value="VER_MI_MALLA">Ver mi malla</option>
+            </select>
+
+            <label style="font-size:12px; color:#2c3e50; font-weight:bold;">Usuario</label>
+            <input id="loginUser" type="text" autocomplete="username" placeholder="administrador" style="width:100%; box-sizing:border-box; padding:9px; margin:4px 0 12px 0; border:1px solid #cfd8dc; border-radius:7px; font-size:14px;">
+
+            <label style="font-size:12px; color:#2c3e50; font-weight:bold;">Contraseña</label>
+            <input id="loginPass" type="password" autocomplete="current-password" placeholder="••••••" style="width:100%; box-sizing:border-box; padding:9px; margin:4px 0 6px 0; border:1px solid #cfd8dc; border-radius:7px; font-size:14px;" onkeydown="if(event.key==='Enter') hacerLogin();">
+
+            <div id="loginError" style="color:#c0392b; font-size:12px; min-height:16px; margin:2px 0 8px 0;"></div>
+
+            <button onclick="hacerLogin()" style="width:100%; padding:11px; background:#e67e22; color:#fff; border:none; border-radius:8px; font-size:15px; font-weight:bold; cursor:pointer;">Entrar</button>
+            <div id="loginCargando" style="display:none; text-align:center; color:#7f8c8d; font-size:12px; margin-top:10px;">⌛ Cargando malla de la tienda…</div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SPLASH DE CARGA: se muestra al entrar y sigue el progreso
+         REAL de la descarga de la malla desde Google Sheets.
+    ============================================================ -->
+    <div id="splashCarga" role="status" aria-live="polite">
+        <canvas id="splashFx" aria-hidden="true"></canvas>
+        <div class="splash-hud">
+            <span class="hud-c hud-tl"></span><span class="hud-c hud-tr"></span>
+            <span class="hud-c hud-bl"></span><span class="hud-c hud-br"></span>
+            <div class="splash-nucleo">
+                <span class="anillo anillo-1"></span>
+                <span class="anillo anillo-2"></span>
+                <span class="anillo anillo-3"></span>
+                <span class="splash-icono">💳</span>
+            </div>
+            <div class="splash-marca">
+                <div class="splash-titulo">Puntos de Pago</div>
+                <div class="splash-tienda" id="splashTienda">—</div>
+            </div>
+            <div class="splash-barra"><div class="splash-relleno" id="splashRelleno"></div></div>
+            <div class="splash-pie">
+                <span class="splash-pct" id="splashPct">0%</span>
+                <span id="splashEstado">Conectando…</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ====== CONFIGURACIÓN DEL PUENTE HTML <-> SHEETS (Apps Script) ======
+    // El HTML LEE y ESCRIBE directamente en el Sheets a través de un Apps Script
+    // publicado como Web App. No usa API Key ni pasa por el Python.
+    // Pega la URL del despliegue (termina en /exec). Ver GUIA_CONEXION_SHEETS.md.
+    const SHEETS_CONFIG = {
+        APPS_SCRIPT_URL: "https://script.google.com/macros/s/AKfycbzyvngqwjgAQNrtQJdWupYjaYSi32wnFxuQ7WvUDQvhNvpg50I6Y81GZKtyBbpc6L8W/exec",
+        TOKEN:           ""   // opcional; si el Apps Script exige token, ponlo aquí
+    };
+    const TIENDAS_HTML = ["AKCAL","AKFLO","AKPER","AKYOP","AKBAR","AKSIN","AKB68",
+                          "AKB30","AKEDE","AK170","AKVEN","AKMOS","AKVIL","AKCAN"];
+    // Usuario/clave genéricos (temporal, como se acordó):
+    const USUARIOS_VALIDOS = { "ADMINISTRADOR": "ADMIN1" };
+
+    window.APP_TIENDA = null;
+    window.APP_ROL = null;
+
+    (function poblarTiendasLogin() {
+        const sel = document.getElementById('loginTienda');
+        sel.innerHTML = TIENDAS_HTML.map(t => `<option value="${t}">${t}</option>`).join('');
+    })();
+
+    // ===== SPLASH DE CARGA =====
+    // splashPaso() se llama desde los puntos reales de la carga, así la barra
+    // refleja lo que de verdad está pasando (no una animación falsa).
+    let _splashT0 = 0, _splashRAF = null, _splashFxOn = false;
+
+    // Red de partículas del fondo: nodos que derivan y se unen con líneas cuando
+    // se acercan (azul, con algunos nodos naranja). Se detiene al ocultar.
+    function _splashFxIniciar() {
+        const cv = document.getElementById('splashFx');
+        if (!cv || _splashFxOn) return;
+        const ctx = cv.getContext('2d');
+        if (!ctx) return;
+        _splashFxOn = true;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        let w = 0, h = 0;
+        const medir = () => {
+            w = cv.clientWidth; h = cv.clientHeight;
+            cv.width = w * dpr; cv.height = h * dpr;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        };
+        medir();
+        cv._medir = medir;
+        window.addEventListener('resize', medir);
+
+        const N = Math.round(Math.min(70, Math.max(26, w / 22)));
+        const pts = Array.from({ length: N }, () => ({
+            x: Math.random() * w, y: Math.random() * h,
+            vx: (Math.random() - .5) * .45, vy: (Math.random() - .5) * .45,
+            r: Math.random() * 1.7 + .8,
+            naranja: Math.random() < .22
+        }));
+        const quieto = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        function pintar() {
+            ctx.clearRect(0, 0, w, h);
+            for (let i = 0; i < N; i++) {
+                for (let j = i + 1; j < N; j++) {
+                    const a = pts[i], b = pts[j];
+                    const d = Math.hypot(a.x - b.x, a.y - b.y);
+                    if (d < 130) {
+                        ctx.strokeStyle = 'rgba(0,180,255,' + ((1 - d / 130) * .32).toFixed(3) + ')';
+                        ctx.lineWidth = .6;
+                        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+                    }
+                }
+            }
+            for (const p of pts) {
+                if (!quieto) {
+                    p.x += p.vx; p.y += p.vy;
+                    if (p.x < 0 || p.x > w) p.vx *= -1;
+                    if (p.y < 0 || p.y > h) p.vy *= -1;
+                }
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = p.naranja ? '#ff8f1f' : '#00b4ff';
+                ctx.fillStyle = p.naranja ? 'rgba(255,143,31,.95)' : 'rgba(0,180,255,.8)';
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+            if (!quieto) _splashRAF = requestAnimationFrame(pintar);
+        }
+        pintar();
+    }
+    function _splashFxDetener() {
+        if (_splashRAF) { cancelAnimationFrame(_splashRAF); _splashRAF = null; }
+        const cv = document.getElementById('splashFx');
+        if (cv && cv._medir) window.removeEventListener('resize', cv._medir);
+        _splashFxOn = false;
+    }
+
+    function splashMostrar(tienda) {
+        const el = document.getElementById('splashCarga');
+        if (!el) return;
+        const t = document.getElementById('splashTienda');
+        if (t) t.textContent = tienda || '';
+        el.classList.remove('saliendo');
+        el.classList.add('visible');
+        _splashT0 = Date.now();
+        splashPaso(8, 'Conectando…');
+        _splashFxIniciar();   // el canvas ya tiene tamaño: el splash está visible
+    }
+    function splashPaso(pct, texto) {
+        const r = document.getElementById('splashRelleno');
+        const e = document.getElementById('splashEstado');
+        const p = document.getElementById('splashPct');
+        const v = Math.max(0, Math.min(100, pct));
+        if (r) r.style.width = v + '%';
+        if (e && texto) e.textContent = texto;
+        if (p) p.textContent = Math.round(v) + '%';
+    }
+    // exito=false -> se quita de inmediato para dejar ver el error del login
+    function splashOcultar(exito) {
+        const el = document.getElementById('splashCarga');
+        if (!el) return;
+        if (exito === false) { el.classList.remove('visible', 'saliendo'); _splashFxDetener(); return; }
+        splashPaso(100, '¡Listo!');
+        // Si el Sheets respondió muy rápido, mantenlo un mínimo en pantalla:
+        // si no, la animación sería un parpadeo imperceptible.
+        const resto = Math.max(0, 1400 - (Date.now() - _splashT0));
+        setTimeout(() => {
+            el.classList.add('saliendo');
+            setTimeout(() => {
+                el.classList.remove('visible', 'saliendo');
+                _splashFxDetener();   // libera el requestAnimationFrame
+            }, 500);
+        }, resto + 380);
+    }
+
+    function hacerLogin() {
+        const tienda = document.getElementById('loginTienda').value;
+        const rol = document.getElementById('loginRol').value;
+        const user = (document.getElementById('loginUser').value || '').trim().toUpperCase();
+        const pass = document.getElementById('loginPass').value || '';
+        const errEl = document.getElementById('loginError');
+        errEl.textContent = '';
+
+        // Validación (usuario genérico admin / ADMIN1). Se acepta "administrador" o "admin".
+        const claveEsperada = USUARIOS_VALIDOS["ADMINISTRADOR"];
+        const userOk = (user === "ADMINISTRADOR" || user === "ADMIN" || user === "");
+        if (!userOk || pass !== claveEsperada) {
+            errEl.textContent = 'Usuario o contraseña incorrectos.';
+            return;
+        }
+
+        window.APP_TIENDA = tienda;
+        window.APP_ROL = rol;
+        document.getElementById('loginCargando').style.display = 'block';
+        splashMostrar(tienda);
+        cargarMallaDesdeSheets(tienda).then(ok => {
+            if (ok) {
+                document.getElementById('loginOverlay').style.display = 'none';
+                let cab = document.getElementById('tiendaActualLabel');
+                if (cab) cab.textContent = `Tienda: ${tienda} · ${rol.replace('_',' ')}`;
+            }
+            splashOcultar(ok);
+            document.getElementById('loginCargando').style.display = 'none';
+        });
+    }
+
+    // Ajusta cada fila al ancho del encabezado (Sheets omite celdas vacías finales)
+    function _normalizarFilas(values) {
+        if (!values || !values.length) return [];
+        let ancho = Math.max(...values.map(r => r.length));
+        return values.map(r => {
+            let fila = r.slice();
+            while (fila.length < ancho) fila.push('');
+            return fila;
+        });
+    }
+
+    // Deduce la fecha de inicio a partir de la primera columna de día "dd/mm"
+    function _inferirFechaInicio(encabezados) {
+        let etiqueta = encabezados.find(h => /^\d{1,2}\/\d{1,2}/.test(String(h).trim()));
+        if (!etiqueta) return null;
+        let m = String(etiqueta).trim().match(/^(\d{1,2})\/(\d{1,2})/);
+        if (!m) return null;
+        let dd = parseInt(m[1]), mm = parseInt(m[2]);
+        let hoy = new Date();
+        let mejor = null, mejorDif = Infinity;
+        for (let y of [hoy.getFullYear() - 1, hoy.getFullYear(), hoy.getFullYear() + 1]) {
+            let d = new Date(y, mm - 1, dd);
+            let dif = Math.abs(d - hoy);
+            if (dif < mejorDif) { mejorDif = dif; mejor = d; }
+        }
+        return mejor;
+    }
+
+    function _appsScriptOk() {
+        return SHEETS_CONFIG.APPS_SCRIPT_URL &&
+               !SHEETS_CONFIG.APPS_SCRIPT_URL.startsWith('PEGA_AQUI') &&
+               SHEETS_CONFIG.APPS_SCRIPT_URL.indexOf('/exec') !== -1;
+    }
+
+    // ---------- LECTURA:  HTML  <-  Sheets  (GET al Apps Script) ----------
+    async function cargarMallaDesdeSheets(tienda) {
+        const errEl = document.getElementById('loginError');
+        if (!_appsScriptOk()) {
+            errEl.textContent = 'Falta configurar APPS_SCRIPT_URL en el HTML (ver guía).';
+            return false;
+        }
+        const pestana = 'SCHED_' + tienda;
+        let url = SHEETS_CONFIG.APPS_SCRIPT_URL + '?action=getData&sheet=' + encodeURIComponent(pestana);
+        if (SHEETS_CONFIG.TOKEN) url += '&token=' + encodeURIComponent(SHEETS_CONFIG.TOKEN);
+        try {
+            if (typeof splashPaso === 'function') splashPaso(20, 'Conectando con Google Sheets…');
+            const resp = await fetch(url);
+            if (typeof splashPaso === 'function') splashPaso(45, 'Descargando malla de turnos…');
+            const data = await resp.json();
+            if (!data.success) {
+                errEl.textContent = 'No se pudo leer el Sheets: ' + (data.error || 'error desconocido');
+                return false;
+            }
+            if (typeof splashPaso === 'function') splashPaso(65, 'Procesando la programación…');
+            let values = _normalizarFilas(data.data || []);
+            values = values.filter(row => row && row.some(c => c && c.toString().trim() !== '')
+                                          && String(row[0]).trim() !== 'PARAMETROS_SISTEMA');
+            if (values.length < 2) {
+                errEl.textContent = `La pestaña ${pestana} no tiene datos aún. Genera la malla en Python primero.`;
+                return false;
+            }
+            let fi = _inferirFechaInicio(values[0]);
+            if (fi) {
+                document.getElementById('fechaInicio').value =
+                    fi.getFullYear() + '-' + String(fi.getMonth() + 1).padStart(2, '0') + '-' + String(fi.getDate()).padStart(2, '0');
+            }
+            if (typeof splashPaso === 'function') splashPaso(80, 'Armando la matriz de turnos…');
+            matrizOriginal = values;
+            combinarDatosSeguro();
+            if (typeof mostrarMensaje === 'function')
+                mostrarMensaje(`✅ Malla de ${tienda} cargada desde Google Sheets.`, true);
+            if (typeof splashPaso === 'function') splashPaso(94, 'Cargando datos de la tienda…');
+            cargarBateriaDesdeConfig(tienda);   // en segundo plano: batería real de la tienda
+            // También en segundo plano: la pestaña PLANTA (X que no pueden entrar
+            // a caja + fechas de vacaciones para el radar y Planta Ideal)
+            if (typeof cargarPlantaDesdeSheets === 'function') {
+                cargarPlantaDesdeSheets(true).then(() => {
+                    if (typeof sincronizarXDesdePlanta === 'function') sincronizarXDesdePlanta();
+                    if (typeof renderLineaTiempoCobertura === 'function') renderLineaTiempoCobertura();
+                });
+            }
+            return true;
+        } catch (e) {
+            errEl.textContent = 'Error de red al leer el Sheets: ' + e.message;
+            return false;
+        }
+    }
+
+    // Lee la pestaña _CONFIG (Tienda | Clave | Valor) y guarda la BATERÍA real
+    // (total de cajas físicas) en window.APP_BATERIA, y los OBJETIVOS ABSOLUTOS
+    // de cajeros por franja (obj_apertura / obj_pico_am / obj_pico_pm /
+    // obj_cierre) en window.APP_OBJETIVOS para las anclas del perfil.
+    async function cargarBateriaDesdeConfig(tienda) {
+        window.APP_BATERIA = 0;
+        window.APP_OBJETIVOS = {};
+        try {
+            const url = SHEETS_CONFIG.APPS_SCRIPT_URL + '?action=getData&sheet=_CONFIG';
+            const resp = await fetch(url);
+            const data = await resp.json();
+            if (data && data.success && Array.isArray(data.data)) {
+                for (const fila of data.data) {
+                    if (String(fila[0] || '').trim().toUpperCase() !== tienda.toUpperCase()) continue;
+                    const clave = String(fila[1] || '').trim().toLowerCase();
+                    if (clave === 'bateria') {
+                        window.APP_BATERIA = parseInt(fila[2]) || 0;
+                    } else if (clave.indexOf('obj_') === 0) {
+                        const v = parseInt(fila[2]) || 0;
+                        if (v > 0) window.APP_OBJETIVOS[clave.slice(4)] = v;   // apertura/pico_am/pico_pm/cierre
+                    }
+                }
+            }
+            if (window.APP_BATERIA > 0 && typeof renderLineaTiempoCobertura === 'function') {
+                renderLineaTiempoCobertura();   // refrescar con el % sobre batería real
+            }
+            if (typeof renderCumplimiento === 'function') renderCumplimiento();
+        } catch (e) { /* sin batería: el cronograma usa % sobre el pico */ }
+    }
+
+    // ---------- ESCRITURA:  HTML  ->  Sheets  (POST al Apps Script) ----------
+    // Reconstruye la malla completa (Rol / Nombre / [Código] / días / Total) a
+    // partir de excelData (que ya refleja los cambios del usuario) y recalcula
+    // la columna "Total Horas Periodo" por si se editaron turnos.
+    function _construirMatrizParaGuardar() {
+        let dayHeaders = headers;                 // [día1, día2, ..., Total Horas Periodo]
+        let idxTotal = dayHeaders.findIndex(h => String(h).trim().toLowerCase().startsWith('total'));
+        let filaCab = ['Rol', 'Nombre'];
+        if (hayColumnaNomina) filaCab.push('Código Nómina');
+        filaCab.push('Restricción');              // conservar la restricción al guardar
+        filaCab = filaCab.concat(dayHeaders);
+        let out = [filaCab];
+        excelData.forEach(item => {
+            let fila = [item.rol || '', item.data[0] || ''];
+            if (hayColumnaNomina) fila.push(item.codigoNomina || '');
+            fila.push(item.restriccion || '');
+            for (let i = 0; i < dayHeaders.length; i++) {
+                if (i === idxTotal) {
+                    let tot = 0;
+                    for (let j = 0; j < dayHeaders.length; j++) {
+                        if (j === idxTotal) continue;
+                        tot += (typeof horasDeTurno === 'function')
+                               ? horasDeTurno((item.data[j + 1] || '').toString().toUpperCase()) : 0;
+                    }
+                    fila.push(Math.round(tot * 10) / 10);
+                } else {
+                    fila.push(item.data[i + 1] != null ? item.data[i + 1] : '');
+                }
+            }
+            out.push(fila);
+        });
+        return out;
+    }
+
+    async function guardarMallaEnSheets() {
+        if (!_appsScriptOk()) { alert('Falta configurar APPS_SCRIPT_URL en el HTML (ver guía).'); return; }
+        if (!window.APP_TIENDA) { alert('Primero inicia sesión y carga una tienda.'); return; }
+        if (!excelData || !excelData.length) { alert('No hay malla cargada para guardar.'); return; }
+        let btn = document.getElementById('btnGuardarSheets');
+        let txtOrig = btn ? btn.textContent : '';
+        if (btn) { btn.disabled = true; btn.textContent = '⌛ Guardando...'; }
+        const payload = {
+            sheet: 'SCHED_' + window.APP_TIENDA,
+            values: _construirMatrizParaGuardar(),
+            token: SHEETS_CONFIG.TOKEN || ''
+        };
+        try {
+            // text/plain evita el preflight CORS que Apps Script no maneja.
+            const resp = await fetch(SHEETS_CONFIG.APPS_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify(payload)
+            });
+            const data = await resp.json();
+            if (data.success) {
+                if (typeof mostrarMensaje === 'function')
+                    mostrarMensaje(`💾 Cambios guardados en Google Sheets (SCHED_${window.APP_TIENDA}, ${data.rows} filas).`, true);
+                else alert(`Guardado OK (${data.rows} filas).`);
+            } else {
+                alert('❌ Error al guardar: ' + (data.error || 'desconocido'));
+            }
+        } catch (e) {
+            alert('❌ Error de red al guardar: ' + e.message);
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = txtOrig; }
+        }
+    }
+
+    function cerrarSesion() {
+        window.APP_TIENDA = null;
+        document.getElementById('loginPass').value = '';
+        document.getElementById('loginError').textContent = '';
+        document.getElementById('loginOverlay').style.display = 'flex';
+        plantaValues = null;   // al cambiar de tienda se recarga la planta
+    }
+
+    // ================================================================
+    //  MI PLANTA: lee y edita PLANTA_<tienda> directamente contra el Sheets.
+    //  - Los datos se muestran en una tabla editable (celda a celda).
+    //  - "Guardar en Sheets" escribe la matriz completa en la pestaña original,
+    //    que es la MISMA que lee el Python al generar la malla.
+    // ================================================================
+    let plantaValues = null;        // matriz [encabezados, ...filas] de PLANTA_<tienda>
+
+    function _plantaPuedeEditar() { return window.APP_ROL === 'ADMINISTRADOR'; }
+
+    async function cargarPlantaDesdeSheets(forzar) {
+        const cont = document.getElementById('plantaContainer');
+        if (!cont) return;
+        if (!window.APP_TIENDA) { cont.innerHTML = '<div style="color:#7f8c8d; padding:10px;">Inicia sesión con una tienda para ver su planta.</div>'; return; }
+        if (plantaValues && !forzar) { renderPlantaEditable(); return; }
+        if (!_appsScriptOk()) { cont.innerHTML = '<div style="color:#c0392b; padding:10px;">Falta configurar APPS_SCRIPT_URL (ver guía).</div>'; return; }
+        cont.innerHTML = '<div style="color:#7f8c8d; padding:10px;">⌛ Cargando PLANTA_' + window.APP_TIENDA + ' desde Google Sheets...</div>';
+        let url = SHEETS_CONFIG.APPS_SCRIPT_URL + '?action=getData&sheet=' + encodeURIComponent('PLANTA_' + window.APP_TIENDA);
+        if (SHEETS_CONFIG.TOKEN) url += '&token=' + encodeURIComponent(SHEETS_CONFIG.TOKEN);
+        try {
+            const resp = await fetch(url);
+            const data = await resp.json();
+            if (!data.success) { cont.innerHTML = '<div style="color:#c0392b; padding:10px;">No se pudo leer PLANTA_' + window.APP_TIENDA + ': ' + (data.error || 'error') + '</div>'; return; }
+            plantaValues = _normalizarFilas(data.data || []);
+            if (!plantaValues.length) plantaValues = [['Rol', 'Nombre', 'Inicio Vacaciones', 'Fin Vacaciones', 'Restriccion', 'turnos hacer ENTRE SEMNA', 'turnos hacer FIN DE SEMNA', 'CON NOMINA']];
+            window.PLANTA_DATA = plantaValues;   // para Planta Ideal (vacaciones)
+            if (typeof sincronizarXDesdePlanta === 'function') sincronizarXDesdePlanta();
+            renderPlantaEditable();
+        } catch (e) {
+            cont.innerHTML = '<div style="color:#c0392b; padding:10px;">Error de red: ' + e.message + '</div>';
+        }
+    }
+
+    function renderPlantaEditable() {
+        const cont = document.getElementById('plantaContainer');
+        const lbl = document.getElementById('plantaTiendaLabel');
+        const aviso = document.getElementById('plantaAviso');
+        if (lbl) lbl.textContent = 'PLANTA_' + (window.APP_TIENDA || '');
+        const editable = _plantaPuedeEditar();
+        const btnAdd = document.getElementById('btnAgregarFilaPlanta');
+        const btnSave = document.getElementById('btnGuardarPlanta');
+        if (btnAdd) btnAdd.style.display = editable ? '' : 'none';
+        if (btnSave) btnSave.style.display = editable ? '' : 'none';
+        if (aviso) {
+            aviso.style.display = 'block';
+            aviso.innerHTML = editable
+                ? '✏️ Modo edición (ADMINISTRADOR): los cambios se escriben en la pestaña PLANTA original del Sheets al pulsar Guardar. Esa pestaña es la que usa el Python para las próximas mallas.'
+                : '🔒 Solo lectura: tu rol (' + (window.APP_ROL || '') + ') no permite modificar la planta. Ingresa como ADMINISTRADOR para editar.';
+        }
+        if (!plantaValues || !plantaValues.length) { cont.innerHTML = '<div style="color:#7f8c8d; padding:10px;">La pestaña está vacía.</div>'; return; }
+
+        const head = plantaValues[0];
+        let html = '<table id="plantaTabla" style="border-collapse:collapse; font-size:12px; white-space:nowrap; background:#fff;">';
+        html += '<thead><tr style="background:#2c3e50; color:#fff;">';
+        html += '<th style="padding:6px 8px; font-size:10px;">#</th>';
+        head.forEach(h => { html += `<th style="padding:6px 12px;">${h || ''}</th>`; });
+        if (editable) html += '<th style="padding:6px 8px;"></th>';
+        html += '</tr></thead><tbody>';
+        for (let r = 1; r < plantaValues.length; r++) {
+            const fila = plantaValues[r];
+            html += `<tr style="background:${r % 2 ? '#fff' : '#f8f9fa'};">`;
+            html += `<td style="padding:4px 8px; color:#95a5a6; font-size:10px;">${r}</td>`;
+            for (let c = 0; c < head.length; c++) {
+                const v = (fila[c] !== undefined && fila[c] !== null) ? String(fila[c]) : '';
+                const esX = v.trim().toUpperCase() === 'X';
+                html += `<td ${editable ? 'contenteditable="true"' : ''} data-r="${r}" data-c="${c}"
+                             style="padding:4px 10px; border:1px solid #e8e8e8; min-width:90px; ${esX ? 'background:#fdecea; color:#c0392b; font-weight:bold;' : ''} ${editable ? 'cursor:text;' : ''}"
+                             oninput="plantaCeldaEditada(this)">${v.replace(/</g, '&lt;')}</td>`;
+            }
+            if (editable) html += `<td style="padding:2px 6px;"><button onclick="eliminarFilaPlanta(${r})" title="Eliminar esta persona" style="padding:2px 8px; font-size:10px; background:#c0392b; color:#fff; border:none; border-radius:4px; cursor:pointer;">🗑️</button></td>`;
+            html += '</tr>';
+        }
+        html += '</tbody></table>';
+        html += `<div style="margin-top:8px; font-size:11px; color:#7f8c8d;">${plantaValues.length - 1} persona(s) · Columnas típicas: Restricción = "X" (no suma), "SOLO HASTA LAS 21:00", "SI" (turnos fijos) o vacío.</div>`;
+        cont.innerHTML = html;
+    }
+
+    function plantaCeldaEditada(td) {
+        const r = parseInt(td.getAttribute('data-r')), c = parseInt(td.getAttribute('data-c'));
+        if (!plantaValues || !plantaValues[r]) return;
+        while (plantaValues[r].length <= c) plantaValues[r].push('');
+        plantaValues[r][c] = td.textContent;
+    }
+
+    function agregarFilaPlanta() {
+        if (!_plantaPuedeEditar() || !plantaValues) return;
+        plantaValues.push(plantaValues[0].map(() => ''));
+        renderPlantaEditable();
+        const cont = document.getElementById('plantaContainer');
+        if (cont) cont.scrollTop = cont.scrollHeight;
+    }
+
+    function eliminarFilaPlanta(r) {
+        if (!_plantaPuedeEditar() || !plantaValues || !plantaValues[r]) return;
+        const nombre = plantaValues[r][1] || plantaValues[r][0] || ('fila ' + r);
+        if (!confirm(`¿Eliminar a "${nombre}" de la planta?\n\nEl cambio queda en el Sheets solo cuando pulses "Guardar en Sheets".`)) return;
+        plantaValues.splice(r, 1);
+        renderPlantaEditable();
+    }
+
+    async function guardarPlantaEnSheets() {
+        if (!_plantaPuedeEditar()) { alert('Solo el rol ADMINISTRADOR puede guardar la planta.'); return; }
+        if (!window.APP_TIENDA || !plantaValues) { alert('No hay planta cargada.'); return; }
+        const filasDatos = plantaValues.slice(1).filter(f => f.some(c => c && String(c).trim() !== ''));
+        if (!confirm(`Vas a sobrescribir PLANTA_${window.APP_TIENDA} en Google Sheets con ${filasDatos.length} persona(s).\n\nEsa pestaña es la fuente del generador de mallas. ¿Continuar?`)) return;
+        const btn = document.getElementById('btnGuardarPlanta');
+        const txt = btn ? btn.textContent : '';
+        if (btn) { btn.disabled = true; btn.textContent = '⌛ Guardando...'; }
+        try {
+            // text/plain evita el preflight CORS que Apps Script no maneja.
+            const resp = await fetch(SHEETS_CONFIG.APPS_SCRIPT_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ sheet: 'PLANTA_' + window.APP_TIENDA,
+                                       values: [plantaValues[0]].concat(filasDatos),
+                                       token: SHEETS_CONFIG.TOKEN || '' })
+            });
+            const data = await resp.json();
+            if (data.success) {
+                plantaValues = [plantaValues[0]].concat(filasDatos);
+                window.PLANTA_DATA = plantaValues;
+                renderPlantaEditable();
+                if (typeof mostrarMensaje === 'function')
+                    mostrarMensaje(`💾 PLANTA_${window.APP_TIENDA} actualizada en Google Sheets (${data.rows} filas). Las PRÓXIMAS mallas generadas en Python usarán estos datos.`, true);
+                else alert(`Planta guardada (${data.rows} filas).`);
+            } else {
+                alert('❌ Error al guardar la planta: ' + (data.error || 'desconocido'));
+            }
+        } catch (e) {
+            alert('❌ Error de red al guardar la planta: ' + e.message);
+        } finally {
+            if (btn) { btn.disabled = false; btn.textContent = txt; }
+        }
+    }
+    </script>
+
+    <div class="header">
+        <h1>PROGRAMACIONES PUNTOS DE PAGO ALKOSTO</h1>
+        <div id="tiendaActualLabel" style="font-size:12px; color:#bdc3c7; margin-top:2px;"></div>
+        <div style="margin-top: 10px;">
+            <button id="btnEjecutarV20" onclick="ejecutarV20()"
+                style="padding: 8px 22px; background: #e67e22; color: white; border: none; border-radius: 5px;
+                       cursor: pointer; font-weight: bold; font-size: 13px; letter-spacing: 0.5px;
+                       box-shadow: 0 2px 6px rgba(0,0,0,0.25); transition: background 0.2s;"
+                onmouseover="this.style.background='#ca6f1e'" onmouseout="this.style.background='#e67e22'">
+                ▶ Generar Matriz V26 (Turnos 42h)
+            </button>
+            <button id="btnFullScreen" onclick="toggleFullScreenMode()" style="margin-left: 10px;">
+                🖥️ Pantalla Completa
+            </button>
+            <button onclick="cerrarSesion()" style="margin-left: 10px; padding: 8px 16px; background: #7f8c8d; color:#fff; border:none; border-radius:6px; cursor:pointer; font-weight:bold; font-size:12px;">
+                🔁 Cambiar tienda
+            </button>
+            <span id="statusV20" style="margin-left: 12px; font-size: 12px; color: #ecf0f1;"></span>
+        </div>
+    </div>
+
+    <script>
+    async function ejecutarV20() {
+        const btn = document.getElementById('btnEjecutarV20');
+        const status = document.getElementById('statusV20');
+        btn.disabled = true;
+        btn.textContent = '⏳ Ejecutando...';
+        status.textContent = '';
+        try {
+            const r = await fetch('/ejecutar');
+            const data = await r.json();
+            status.textContent = data.ok ? '✅ ' + data.msg : '❌ ' + data.msg;
+            status.style.color = data.ok ? '#2ecc71' : '#e74c3c';
+        } catch {
+            status.textContent = '❌ Servidor no iniciado. Abre la app con Abrir_App.bat';
+            status.style.color = '#e74c3c';
+        }
+        btn.disabled = false;
+        btn.textContent = '▶ Generar Matriz V26 (Turnos 42h)';
+    }
+
+    function switchView(viewId, btn) {
+        document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+        document.getElementById(viewId).classList.add('active');
+        if (btn) btn.classList.add('active');
+        if (viewId === 'view-equidad-auxiliar' && typeof renderEquidadAuxiliar === 'function') renderEquidadAuxiliar();
+        if (viewId === 'view-cinta-turnos' && typeof renderCintaTurnos === 'function') {
+            if (typeof poblarSelectorPersonaCinta === 'function') poblarSelectorPersonaCinta();
+            renderCintaTurnos();
+        }
+        if (viewId === 'view-demanda' && typeof renderLineaTiempoCobertura === 'function') {
+            if (typeof llenarSelectorDiasCobertura === 'function') llenarSelectorDiasCobertura();
+            renderLineaTiempoCobertura();
+        }
+        if (viewId === 'view-cumplimiento' && typeof renderCumplimiento === 'function') renderCumplimiento();
+        if (viewId === 'view-restricciones' && typeof renderRestriccionesHorario === 'function') renderRestriccionesHorario();
+        if (viewId === 'view-planilla' && typeof renderPlanillaVista === 'function') renderPlanillaVista();
+        if (viewId === 'view-planta' && typeof cargarPlantaDesdeSheets === 'function') cargarPlantaDesdeSheets(false);
+        if (viewId === 'view-planta-ideal' && typeof renderPlantaIdeal === 'function') {
+            let mes = document.getElementById('piMes');
+            if (mes && !mes.value) {
+                let hoy = new Date();
+                mes.value = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+            }
+            // cargar la planta del Sheets en segundo plano para las vacaciones
+            if (!window.PLANTA_DATA && typeof cargarPlantaDesdeSheets === 'function' && window.APP_TIENDA) {
+                cargarPlantaDesdeSheets(false).then(() => renderPlantaIdeal());
+            }
+            renderPlantaIdeal();
+        }
+        if (viewId === 'view-tiempos' && typeof window.renderTiempos === 'function') {
+            if (typeof window.poblarSelectorDiasTiempos === 'function') window.poblarSelectorDiasTiempos();
+            window.renderTiempos();
+        }
+    }
+
+    function toggleCargaMatriz() {
+        let panel = document.getElementById('cargaMatrizPanel');
+        panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+    }
+
+    function toggleFullScreenMode() {
+        let shell = document.querySelector('.app-shell');
+        let isFull = shell.classList.toggle('fullscreen-mode');
+        let btn = document.getElementById('btnFullScreen');
+        if (btn) btn.textContent = isFull ? '🡸 Salir de Pantalla Completa' : '🖥️ Pantalla Completa';
+        if (isFull) {
+            if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+        } else if (document.fullscreenElement && document.exitFullscreen) {
+            document.exitFullscreen().catch(() => {});
+        }
+    }
+
+    document.addEventListener('fullscreenchange', function () {
+        if (!document.fullscreenElement) {
+            let shell = document.querySelector('.app-shell');
+            if (shell) shell.classList.remove('fullscreen-mode');
+            let btn = document.getElementById('btnFullScreen');
+            if (btn) btn.textContent = '🖥️ Pantalla Completa';
+        }
+    });
+    </script>
+
+    <div id="redAlert" class="alert-box">
+        ⚠️ ATENCIÓN: El cortafuegos/antivirus de la red está bloqueando las librerías necesarias. Intenta usar otra red o avisa a soporte técnico.
+    </div>
+
+    <div class="top-toolbar">
+        <div class="control-item">
+            <label><strong>📅 Fecha Real Inicio (automática desde el Excel): </strong></label>
+            <input type="date" id="fechaInicio" onchange="if(matrizOriginal.length>0) combinarDatosSeguro();" />
+        </div>
+    </div>
+
+    <div class="app-shell">
+        <aside class="sidebar">
+            <nav class="sidebar-nav">
+                <button class="nav-item active" onclick="switchView('view-matriz', this)">📅 Matriz de Turnos</button>
+                <button class="nav-item" onclick="switchView('view-general', this)">📊 Información General de Caja</button>
+                <button class="nav-item" onclick="switchView('view-demanda', this)">📈 Demanda vs Personal</button>
+                <button class="nav-item" onclick="switchView('view-cumplimiento', this)">🛡️ Cumplimiento de Cobertura</button>
+                <button class="nav-item" onclick="switchView('view-planta', this)">👥 Mi Planta</button>
+                <button class="nav-item" onclick="switchView('view-planta-ideal', this)">📐 Planta Ideal</button>
+                <button class="nav-item" onclick="switchView('view-tiempos', this)">⏱️ Tiempos y Mejora</button>
+                <button class="nav-item" onclick="switchView('view-criticas', this)">🚨 Horas Críticas</button>
+                <button class="nav-item" onclick="switchView('view-eficiencia', this)">🏆 Ranking de Eficiencia</button>
+                <button class="nav-item" onclick="switchView('view-equidad-auxiliar', this)">👤 Equidad por Auxiliar</button>
+                <button class="nav-item" onclick="switchView('view-restricciones', this)">⏰ Restricciones de Horario</button>
+                <button class="nav-item" onclick="switchView('view-cinta-turnos', this)">🎗️ Cinta de Turnos</button>
+                <button class="nav-item" onclick="switchView('view-atipicos', this)">🔥 Días Atípicos / Top Dinero</button>
+                <button class="nav-item" onclick="switchView('view-disponibilidad', this)">🕒 Disponibilidad y Relevos</button>
+                <button class="nav-item" onclick="switchView('view-planilla', this)">📋 Planilla Diaria</button>
+            </nav>
+        </aside>
+
+        <main class="content">
+
+            <!-- ============================================================
+                 1. MATRIZ DE TURNOS (tabla mensual editable)
+            ============================================================ -->
+            <div id="view-matriz" class="view-section active">
+                <div id="msgCentral">Carga la Matriz de Turnos generada en Python para comenzar.</div>
+
+                <div class="carga-matriz-toggle">
+                    <button type="button" class="carga-toggle-btn" onclick="toggleCargaMatriz()">⚙️ Cargar Matriz de Turnos</button>
+                    <div id="cargaMatrizPanel" class="carga-panel" style="display:none;">
+                        <div class="control-item">
+                            <label><strong>Matriz Turnos: </strong></label>
+                            <input type="file" id="fileInput" accept=".xlsx, .xls, .csv" />
+                        </div>
+                        <div class="control-item">
+                            <label><strong>🤖 Análisis IA (Opcional): </strong></label>
+                            <input type="file" id="fileAnalisis" accept=".xlsx, .xls, .csv" />
+                        </div>
+                        <div class="control-item" style="display:none;">
+                            <label><strong>Archivo Nombres: </strong></label>
+                            <input type="file" id="fileMapping" accept=".xlsx, .xls, .csv" />
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display:flex; justify-content:flex-end; gap:10px; margin-bottom:8px;">
+                    <button id="btnGuardarSheets" onclick="guardarMallaEnSheets()" style="padding:9px 20px; background:#2980b9; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold; font-size:14px; box-shadow:0 3px 6px rgba(0,0,0,0.12); transition:0.2s;" onmouseover="this.style.background='#1f6699'" onmouseout="this.style.background='#2980b9'">
+                        💾 Guardar cambios en Sheets
+                    </button>
+                    <button onclick="exportarExcelProgramacion()" style="padding:9px 20px; background:#27ae60; color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold; font-size:14px; box-shadow:0 3px 6px rgba(0,0,0,0.12); transition:0.2s;" onmouseover="this.style.background='#1e8449'" onmouseout="this.style.background='#27ae60'">
+                        📥 Exportar Excel (Programación + Equidad)
+                    </button>
+                </div>
+                <div id="filtroMesesContainer" style="display:none; margin-bottom:10px;"></div>
+                <div id="leyendaDiasContainer"></div>
+                <div class="control-item" style="margin-bottom:10px;">
+                    <label><strong>🔍 Filtrar Vista: </strong></label>
+                    <select id="rolSelector" onchange="aplicarFiltrosGlobales()">
+                        <option value="TODOS">Toda la Planta</option>
+                        <option value="CAJERO">Solo Cajeros</option>
+                        <option value="EMPACADOR">Solo Empacadores (Incluye Sadofe/Fund/Emergente)</option>
+                    </select>
+                </div>
+                <div class="table-container" id="tableContainer">
+                    <!-- La tabla mensual se renderizará aquí -->
+                </div>
+                <div id="contadoresContainer"></div>
+            </div>
+
+            <!-- ============================================================
+                 2. INFORMACIÓN GENERAL DE CAJA
+            ============================================================ -->
+            <div id="view-general" class="view-section">
+                <h2 style="margin:0 0 4px 0; color:#2c3e50;">🤖 Panel IA V26 — Turnos 6.5/7/8h (Promedio 42h)</h2>
+                <p class="view-desc">
+                    Modelo A predice <strong>unidades por hora</strong> · Modelo B predice <strong>cajas necesarias</strong> · Predicción por <strong>días análogos</strong> (similitud ponderada: DíaSem 30% · SemAño 20% · SemMes 10% · Mes 10% · <strong>Quincena 15%</strong> · Festivo/Temporada 15%) mezclada con Random Forest · <strong>Aprendizaje continuo</strong> con la carpeta "Año Actual" · Facturas, tiempo de atención e IC 80% · Festivos de Colombia · Pico/Valle · Equidad.
+                </p>
+
+                <!-- Leyenda de nomenclatura de turnos V26 -->
+                <div style="margin: 10px 0 16px 0; background: #ffffff; border: 1px solid #dfe6e9; border-radius: 10px; padding: 12px 16px;">
+                    <h3 style="margin:0 0 8px 0; color:#2c3e50; font-size:14px;">🕐 Nomenclatura de Turnos (promedio 42h/semana · semanas de lunes a domingo)</h3>
+                    <div style="display:flex; gap:12px; flex-wrap:wrap; font-size:12px; color:#2c3e50;">
+                        <div style="flex:1; min-width:220px; background:#f8f9fa; border-radius:6px; padding:9px;">
+                            <strong>Formato:</strong> [horas][letra][inicio]-[fin]<br>
+                            Ej: <code style="background:#eef6fb; padding:1px 5px; border-radius:3px;">6,5A7.3-14</code> = 6h30m · Apertura · 7:30→14:00<br>
+                            El <strong>.3</strong> significa <strong>:30</strong> (media hora)
+                        </div>
+                        <div style="flex:1; min-width:220px; background:#f8f9fa; border-radius:6px; padding:9px;">
+                            <strong>Letras:</strong> <span style="color:#e67e22; font-weight:bold;">A</span>=Apertura ·
+                            <span style="color:#2980b9; font-weight:bold;">i</span>=Intermedio (con 1h de descanso) ·
+                            <span style="color:#8e44ad; font-weight:bold;">C</span>=Cierre · <span style="font-weight:bold;">N</span>=Noche<br>
+                            <strong>Ausencias:</strong> LIBRE/LBRE · COMP · VC · INC · LIC
+                        </div>
+                        <div style="flex:1; min-width:220px; background:#f8f9fa; border-radius:6px; padding:9px;">
+                            <strong>Regla de horas:</strong> Dom trabajado <strong>8h</strong> · Festivo <strong>8h</strong> ·
+                            Sáb <strong>8h</strong> (7h si la semana tiene festivo) ·
+                            Lun-Vie <strong>6.5h</strong> (7h si el domingo de esa semana es LIBRE)
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tarjetas de métricas del modelo -->
+                <div id="iaMetricCards" class="ia-cards" style="margin-bottom:18px;"></div>
+
+                <!-- Capacidad segmentada Pico/Valle -->
+                <div id="iaSegmentos" style="margin-bottom:18px;"></div>
+
+                <div id="iaAvisoFormato" style="display:none; margin-top:12px; background:#fff3cd; border-left:5px solid #f1c40f; padding:10px 14px; border-radius:6px; font-size:13px; color:#7d6608;"></div>
+            </div>
+
+            <!-- ============================================================
+                 3. DEMANDA VS PERSONAL
+            ============================================================ -->
+            <div id="view-demanda" class="view-section">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <h3 style="margin:0; color:#2c3e50; font-size:15px;">📈 Demanda Predicha vs Venta Real Año Anterior vs Cajas Meta vs Personal (Titulares/Emergentes/Resto)</h3>
+                    <div>
+                        <label style="font-size:13px;"><strong>Día:</strong></label>
+                        <select id="iaDaySelector" style="font-size:13px; padding:4px;"></select>
+                    </div>
+                </div>
+                <div id="iaCompararBadge" style="margin-top:8px; padding:8px 14px; background:#eef6fb; border-left:5px solid #2980b9; border-radius:6px; font-size:13px; color:#2c3e50; display:none;"></div>
+                <div style="position:relative; height:380px; margin-top:10px;">
+                    <canvas id="iaChartV21"></canvas>
+                </div>
+                <div id="iaJustifBox" style="display:none; margin-top:10px; padding:10px 14px; background:#fffdf5; border:1px solid #f0e6c8; border-left:5px solid #e67e22; border-radius:6px; font-size:13px; color:#2c3e50;"></div>
+                <p style="margin:8px 0 0 0; font-size:11px; color:#95a5a6;">💡 Haz clic sobre una hora del gráfico para ver la justificación de la meta de cajas (promedio histórico vs demanda prevista).</p>
+
+                <!-- Cronograma de cobertura por persona (línea de tiempo de turnos) -->
+                <div style="margin-top:26px; border-top:2px dashed #ddd; padding-top:18px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+                        <h3 style="margin:0; color:#2c3e50; font-size:15px;">🕒 Cobertura por Persona — Línea de Tiempo (según su turno)</h3>
+                        <div>
+                            <label style="font-size:13px;"><strong>📅 Día de la malla:</strong></label>
+                            <select id="covDaySelector" onchange="renderLineaTiempoCobertura()" style="font-size:13px; padding:4px; font-weight:bold;"></select>
+                        </div>
+                    </div>
+                    <p style="margin:0 0 10px 0; font-size:11px; color:#7f8c8d;">Cada barra marca desde qué hora hasta qué hora esa persona cubre una caja/puesto (ej. <b>6,5A8-14.3</b> = 8:00 a 14:30). <b>i</b> = intermedio (incluye 1h de descanso, marcada como ALM). La fila inferior de cada cuadro suma las cajas cubiertas por hora.</p>
+                    <div id="covTimelineContainer"></div>
+                </div>
+            </div>
+
+            <!-- ============================================================
+                 3a-bis. CUMPLIMIENTO DEL PERFIL DE COBERTURA (todos los días)
+            ============================================================ -->
+            <div id="view-cumplimiento" class="view-section">
+                <h3 style="color:#c0392b; font-size:15px; margin-top:0;">🛡️ Cumplimiento del Perfil de Cobertura — Resumen de todos los días</h3>
+                <p class="view-desc">Regla que debe cumplirse <b>TODOS los días</b> sobre la batería real de cajas (Cajeros + Emergentes, sin personas con X):
+                   1º <b>≥25% garantizado</b> a las 8:00 (meta 30%) · 2º <b>≥60% garantizado</b> al cierre del último turno (21:30) · 3º <b>100%</b> de 11:00 a 13:00 (mínimo aceptable <b>85%</b>) · domingos además <b>≥80%</b> de 13:00 a 20:00.
+                   Aquí se listan en rojo los días incumplidos, con cada hora y cuántas cajas faltan; si falla el último turno, se indica que debe cubrirse con horas extra de personas que salen un poco antes.</p>
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; padding:10px 14px; background:#fef9e7; border:1px solid #f1c40f; border-radius:8px;">
+                    <span style="font-size:13px; font-weight:bold; color:#7d6608;">🧪 Simulador de personal extra:</span>
+                    <label style="font-size:12px;">Cajeros adicionales:
+                        <input type="number" id="simExtraN" min="0" max="30" value="0" style="width:60px; padding:3px; font-size:12px;"></label>
+                    <label style="font-size:12px;">Jornada:
+                        <select id="simExtraDur" style="padding:3px; font-size:12px;">
+                            <option value="6.5">6,5 h</option>
+                            <option value="7">7 h</option>
+                            <option value="8">8 h</option>
+                        </select></label>
+                    <button onclick="simularPersonalExtra()" style="padding:5px 14px; font-size:12px; font-weight:bold; background:#f39c12; color:#fff; border:none; border-radius:6px; cursor:pointer;">▶ Simular cobertura</button>
+                    <button onclick="limpiarSimulacion()" style="padding:5px 10px; font-size:12px; background:#95a5a6; color:#fff; border:none; border-radius:6px; cursor:pointer;">✖ Quitar simulación</button>
+                    <span style="font-size:11px; color:#7f8c8d;">(la recomendación matemática aparece abajo; pruébala aquí)</span>
+                </div>
+                <div id="cumplimientoContainer"></div>
+            </div>
+
+            <!-- ============================================================
+                 3a-ter. MI PLANTA (datos de PLANTA_<tienda>, editables <-> Sheets)
+            ============================================================ -->
+            <div id="view-planta" class="view-section">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+                    <h3 style="color:#2c3e50; font-size:15px; margin:0;">👥 Mi Planta — <span id="plantaTiendaLabel"></span></h3>
+                    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                        <button onclick="cargarPlantaDesdeSheets(true)" style="padding:6px 14px; font-size:12px; background:#7f8c8d; color:#fff; border:none; border-radius:6px; cursor:pointer;">🔄 Recargar del Sheets</button>
+                        <button id="btnAgregarFilaPlanta" onclick="agregarFilaPlanta()" style="padding:6px 14px; font-size:12px; background:#2980b9; color:#fff; border:none; border-radius:6px; cursor:pointer;">➕ Añadir persona</button>
+                        <button id="btnGuardarPlanta" onclick="guardarPlantaEnSheets()" style="padding:6px 14px; font-size:12px; font-weight:bold; background:#27ae60; color:#fff; border:none; border-radius:6px; cursor:pointer;">💾 Guardar en Sheets</button>
+                    </div>
+                </div>
+                <p class="view-desc">Estos son los datos reales de la pestaña <b>PLANTA</b> de tu tienda en Google Sheets (la fuente que lee el generador de mallas en Python).
+                   Haz clic en cualquier celda para editarla, añade o elimina personas, y pulsa <b>Guardar en Sheets</b> para que los cambios queden en la hoja original.</p>
+                <div id="plantaAviso" style="display:none; margin-bottom:10px; padding:8px 14px; background:#fff3cd; border-left:5px solid #f1c40f; border-radius:6px; font-size:12px; color:#7d6608;"></div>
+                <div id="plantaContainer" style="overflow-x:auto;"></div>
+            </div>
+
+            <!-- ============================================================
+                 3a-quater. PLANTA IDEAL (dimensionamiento WFM por tienda)
+            ============================================================ -->
+            <div id="view-planta-ideal" class="view-section">
+                <h3 style="color:#1a5276; font-size:15px; margin-top:0;">📐 Planta Ideal — dimensionamiento de personal</h3>
+                <p class="view-desc">Calcula la <b>planta óptima</b> de la tienda con la metodología WFM completa: necesidad diaria por cinta de turnos, cobertura hora a hora contra las anclas mínimas, planta según reglas de descanso (restricción dominante), roles especiales, semana tipo, deuda de 6h, horas-caja / horas-hombre, y comparación contra la planta actual. Por ahora personalizado para <b>AKB30</b>.</p>
+                <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:12px; padding:10px 14px; background:#eaf2f8; border:1px solid #2980b9; border-radius:8px;">
+                    <span style="font-size:13px; font-weight:bold; color:#1a5276;">🏖️ Afectación de vacaciones:</span>
+                    <label style="font-size:12px;">Mes:
+                        <input type="month" id="piMes" onchange="renderPlantaIdeal()" style="padding:3px; font-size:12px;"></label>
+                    <label style="font-size:12px;">Vacacionistas adicionales (manual):
+                        <input type="number" id="piVacExtra" min="0" max="20" value="0" onchange="renderPlantaIdeal()" style="width:55px; padding:3px; font-size:12px;"></label>
+                    <span style="font-size:11px; color:#7f8c8d;">(lee las fechas de vacaciones de la pestaña PLANTA del Sheets)</span>
+                </div>
+                <div id="plantaIdealContainer"></div>
+            </div>
+
+            <!-- ============================================================
+                 3b. TIEMPOS Y MEJORA (tiempos de espera / colas)
+            ============================================================ -->
+            <div id="view-tiempos" class="view-section">
+                <h3 style="color:#8e44ad; font-size:15px; margin-top:0;">⏱️ Tiempos de Espera y Mejora del Servicio</h3>
+                <p class="view-desc">Analiza el tiempo de atención por cliente, la mejora vs el año pasado, y cuánto espera un cliente en la fila con el personal programado — y cuánto bajaría si se pone <b>todo el personal disponible</b> en caja a esa hora. Usa el modelo de colas Erlang-C sobre las facturas predichas.</p>
+
+                <div id="tiemposCards" class="ia-cards" style="margin-bottom:16px;"></div>
+
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:8px;">
+                    <h4 style="margin:0; color:#2c3e50; font-size:14px;">Espera por hora — programado vs. todo el personal en caja</h4>
+                    <div>
+                        <label style="font-size:13px;"><strong>Día:</strong></label>
+                        <select id="tiemposDaySelector" style="font-size:13px; padding:4px;"></select>
+                    </div>
+                </div>
+                <div class="table-container" style="max-height:60vh;">
+                    <table style="width:100%; border-collapse:collapse; font-size:12px;" id="tiemposTabla"></table>
+                </div>
+                <div id="tiemposAviso" style="margin-top:10px; font-size:12px; color:#7f8c8d;"></div>
+            </div>
+
+            <!-- ============================================================
+                 4. HORAS CRÍTICAS
+            ============================================================ -->
+            <div id="view-criticas" class="view-section">
+                <h3 style="color:#c0392b; font-size:15px; margin-top:0;">🚨 Horas Críticas del Período (Faltante &gt; 0)</h3>
+                <div class="table-container" style="max-height:70vh;">
+                    <table style="width:100%; border-collapse:collapse; font-size:12px;" id="iaTablaCriticas"></table>
+                </div>
+            </div>
+
+            <!-- ============================================================
+                 5. RANKING DE EFICIENCIA
+            ============================================================ -->
+            <div id="view-eficiencia" class="view-section">
+                <h3 style="color:#27ae60; font-size:15px; margin-top:0;">🏆 Ranking de Eficiencia por Caja (unds/hora activa)</h3>
+                <div class="table-container" style="max-height:70vh;">
+                    <table style="width:100%; border-collapse:collapse; font-size:12px;" id="iaTablaEficiencia"></table>
+                </div>
+            </div>
+
+            <!-- ============================================================
+                 6. PRONÓSTICO VS REAL (AÑO ACTUAL)
+            ============================================================ -->
+            <div id="view-pronostico" class="view-section">
+                <h3 style="color:#8e44ad; font-size:15px; margin-top:0;">🎯 Pronóstico vs Venta Real — Año Actual (Aprendizaje Continuo)</h3>
+                <div id="iaDesempenoCards" class="ia-cards" style="margin-bottom:10px;"></div>
+                <div class="table-container" style="max-height:60vh;">
+                    <table style="width:100%; border-collapse:collapse; font-size:12px;" id="iaTablaDesempeno"></table>
+                </div>
+                <div id="iaFactoresAuto" style="margin-top:10px;"></div>
+            </div>
+
+            <!-- ============================================================
+                 7. EQUIDAD DE CAMBIOS DE TURNO
+            ============================================================ -->
+            <div id="view-equidad" class="view-section">
+                <h3 style="color:#2980b9; font-size:15px; margin-top:0;">⚖️ Equidad de Cambios de Turno Automáticos (rotación a largo plazo)</h3>
+                <p class="view-desc">La IA mueve primero a quien menos movimientos acumula en el historial. Vacaciones, LIBRE y COMP nunca se tocan.</p>
+                <div class="table-container" style="max-height:70vh;">
+                    <table style="width:100%; border-collapse:collapse; font-size:12px;" id="iaTablaEquidad"></table>
+                </div>
+            </div>
+
+            <!-- ============================================================
+                 7b. EQUIDAD POR AUXILIAR (conteo A/I/C/Libre/Comp por persona)
+            ============================================================ -->
+            <div id="view-equidad-auxiliar" class="view-section">
+                <h3 style="color:#2980b9; font-size:15px; margin-top:0;">👤 Informe de Equidad por Auxiliar</h3>
+                <p class="view-desc">Cuántos turnos de Apertura, Intermedio y Cierre ha tenido cada persona, además de Libres y Compensatorios, con su distribución porcentual. Click en una fila para ver el detalle de los turnos exactos realizados.</p>
+                <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
+                    <div class="control-item">
+                        <label><strong>📅 Mes: </strong></label>
+                        <select id="eqAuxMesSelector" onchange="renderEquidadAuxiliar()">
+                            <option value="TODOS">Todos los meses</option>
+                        </select>
+                    </div>
+                    <div class="control-item">
+                        <label><strong>🔍 Rol: </strong></label>
+                        <select id="eqAuxRolSelector" onchange="renderEquidadAuxiliar()">
+                            <option value="TODOS">Toda la Planta</option>
+                            <option value="CAJERO">Solo Cajeros</option>
+                            <option value="EMPACADOR">Solo Empacadores (Incluye Sadofe/Fund/Emergente)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-container" style="max-height:70vh;">
+                    <table style="width:100%; border-collapse:collapse; font-size:12px;" id="eqAuxTabla"></table>
+                </div>
+            </div>
+
+            <!-- ============================================================
+                 7b-bis. RESTRICCIONES DE HORARIO (incumplimientos + sugerencia)
+            ============================================================ -->
+            <div id="view-restricciones" class="view-section">
+                <h3 style="color:#a04000; font-size:15px; margin-top:0;">⏰ Restricciones de Horario — Incumplimientos y Sugerencias</h3>
+                <p class="view-desc">Días en que una persona con restricción (p. ej. <b>“HASTA las 14:00”</b>) quedó en un turno que <b>termina después de su límite</b>. Para cada caso propone un turno que <b>sí cumple</b> y que, según las <b>ventas (unidades) de ese día</b>, cubre las horas de mayor demanda que esa persona puede atender. El cambio se puede aplicar en <b>Demanda vs Personal</b> (el desplegable de turno de cada persona).</p>
+                <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
+                    <div class="control-item">
+                        <label><strong>📅 Mes: </strong></label>
+                        <select id="restrMes" onchange="renderRestriccionesHorario()">
+                            <option value="TODOS">Todos los meses</option>
+                        </select>
+                    </div>
+                </div>
+                <div id="restrHorarioCont" class="table-container" style="max-height:72vh;"></div>
+            </div>
+
+            <!-- ============================================================
+                 7c. CINTA DE TURNOS (secuencia semanal, solo lectura)
+            ============================================================ -->
+            <div id="view-cinta-turnos" class="view-section">
+                <h3 style="color:#16a085; font-size:15px; margin-top:0;">🎗️ Cinta de Turnos (secuencia semanal)</h3>
+                <p class="view-desc">Muestra, semana a semana, el turno asignado a cada persona y si esa semana tuvo el domingo LIBRE, para que cada quien vea qué turno sigue después del actual. No incluye COMP. Vista de solo lectura: se calcula a partir de la Matriz ya cargada, sin tocar la programación ni el motor de generación.</p>
+                <div style="display:flex; gap:14px; flex-wrap:wrap; align-items:center; margin-bottom:14px;">
+                    <div class="control-item">
+                        <label><strong>📅 Mes: </strong></label>
+                        <select id="cintaMesSelector" onchange="renderCintaTurnos()">
+                            <option value="TODOS">Todos los meses</option>
+                        </select>
+                    </div>
+                    <div class="control-item">
+                        <label><strong>🔍 Rol: </strong></label>
+                        <select id="cintaRolSelector" onchange="poblarSelectorPersonaCinta(); renderCintaTurnos()">
+                            <option value="TODOS">Toda la Planta</option>
+                            <option value="CAJERO">Solo Cajeros</option>
+                            <option value="EMPACADOR">Solo Empacadores (Incluye Sadofe/Fund/Emergente)</option>
+                        </select>
+                    </div>
+                    <div class="control-item" id="cintaPersonaWrap">
+                        <label><strong>👤 Persona: </strong></label>
+                        <select id="cintaPersonaSelector" onchange="renderCintaTurnos()"></select>
+                    </div>
+                    <div class="control-item">
+                        <label style="cursor:pointer; display:flex; align-items:center; gap:6px;">
+                            <input type="checkbox" id="cintaModoTodos" onchange="toggleModoTodosCinta()">
+                            <strong>Ver todos a la vez</strong>
+                        </label>
+                    </div>
+                </div>
+                <div id="cintaResumenPersona" style="margin-bottom:14px;"></div>
+                <div class="table-container" id="cintaContainer" style="max-height:70vh;"></div>
+            </div>
+
+            <!-- ============================================================
+                 8. DÍAS ATÍPICOS + TOP 10 DÍAS EN DINERO
+            ============================================================ -->
+            <div id="view-atipicos" class="view-section">
+                <h3 style="color:#d35400; font-size:15px; margin-top:0;">🔥 Días Atípicos del Historial — ligados a Festivos (&gt;99% en Unidades o Dinero)</h3>
+                <div class="table-container" style="max-height:320px;">
+                    <table style="width:100%; border-collapse:collapse; font-size:12px;" id="iaTablaAtipicos"></table>
+                </div>
+
+                <h3 style="color:#1e8449; font-size:15px; margin-top:24px;">💰 Top 10 Días Históricos por Valor Vendido (hoja CAJAS)</h3>
+                <div class="table-container" style="max-height:320px;">
+                    <table style="width:100%; border-collapse:collapse; font-size:12px;" id="iaTablaTopDinero"></table>
+                </div>
+            </div>
+
+            <!-- ============================================================
+                 9. DISPONIBILIDAD EFECTIVA POR HORA + CRONOGRAMA DE RELEVOS
+            ============================================================ -->
+            <div id="view-disponibilidad" class="view-section">
+                <div style="text-align: center; margin-bottom: 20px; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
+                    <label style="font-size: 16px; margin-right: 10px;"><strong>📅 Seleccionar Día de Operación: </strong></label>
+                    <select id="daySelector" onchange="procesarDiaEspecificoSeguro()" style="font-size: 16px; font-weight: bold; width: auto;"></select>
+                </div>
+
+                <!-- Roles Especiales (restaurado del diseño original) -->
+                <div id="rolesEspecialesPanel" style="display:none; background: #fffcf5; border-left: 5px solid #f39c12; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+                    <h4 style="margin-top:0; color:#d35400;">🎭 Roles Especiales (Excluidos de Caja/Fila)</h4>
+                    <div style="display:flex; gap:10px; align-items:center; flex-wrap: wrap;">
+                        <select id="empEspecialSelect" style="width: 300px;"></select>
+                        <select id="rolEspecialSelect" style="width: 150px;">
+                            <option value="CAMBISTA">💵 Cambista</option>
+                            <option value="PATINADOR">🏃 Patinador</option>
+                            <option value="CARRITOS">🛒 Carritos</option>
+                        </select>
+                        <button onclick="agregarRolEspecial()" style="padding:8px 15px; background:#f39c12; color:white; border:none; border-radius:4px; cursor:pointer;">➕ Asignar</button>
+                    </div>
+                    <div id="listaRolesEspeciales" style="margin-top:15px; display:flex; gap:10px; flex-wrap:wrap;"></div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="dailyChart"></canvas>
+                </div>
+
+                <!-- Ventas por hora vs histórico (restaurado del diseño original) -->
+                <div class="chart-container" id="ventasChartContainer" style="display:none; margin-top:20px;">
+                    <h3 style="text-align:center; color:#2c3e50; margin:0 0 8px 0; font-size:15px;">📈 Ventas por Hora — Hoy vs. Promedio Histórico del Día</h3>
+                    <canvas id="ventasChart"></canvas>
+                </div>
+
+                <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 450px;">
+                        <h3>📊 Disponibilidad Efectiva por Hora</h3>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr><th>Hora</th><th>Cajeros</th><th>Empacadores</th><th>Alertas Predictivas IA</th></tr>
+                                </thead>
+                                <tbody id="hourlyBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div style="flex: 1.5; min-width: 550px;">
+                        <h3>⏳ Cronograma de Relevos</h3>
+                        <div class="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Trabajador</th>
+                                        <th>Turno</th>
+                                        <th>Tipo de Pausa</th>
+                                        <th>Inicia</th>
+                                        <th>Termina</th>
+                                        <th>Cubierto Por</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="scheduleBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ============================================================
+                 10. PLANILLA DE PROGRAMACIÓN DIARIA
+            ============================================================ -->
+            <div id="view-planilla" class="view-section">
+                <div style="display:flex; justify-content:center; align-items:center; gap:18px; flex-wrap:wrap; margin-bottom: 15px; background: #f8f9fa; padding: 12px; border-radius: 8px; border: 1px solid #ddd;">
+                    <label style="font-size: 15px;"><strong>📅 Día: </strong>
+                    <select id="daySelectorPlanilla" onchange="renderPlanillaVista()" style="font-size: 15px; font-weight: bold; width: auto;"></select></label>
+                    <label style="font-size: 15px;"><strong>👥 Rol: </strong>
+                    <select id="planillaRolFilter" onchange="renderPlanillaVista()" style="font-size: 15px; width: auto;"><option value="TODOS">Todos los roles</option></select></label>
+                </div>
+                <div id="seccionPlanilla">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 15px;">
+                        <h2 style="color: #2c3e50; margin: 0;">📋 PLANILLA DE PROGRAMACIÓN DIARIA</h2>
+                        <button onclick="exportarPlanillaPDF()" style="padding:12px 25px; background:var(--danger); color:white; border:none; border-radius:5px; cursor:pointer; font-weight:bold; font-size:15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: 0.2s;">
+                            📥 Exportar a PDF
+                        </button>
+                    </div>
+                    <p style="color: #7f8c8d; font-size: 13px; margin-top: 0;">Los campos Cerco, Caja-ROL y Observación son editables. Clickea sobre ellos para modificarlos antes de exportar el PDF.</p>
+
+                    <div id="planillaContainer" style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05);"></div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+        <!-- ============================================================
+             COMPATIBILIDAD con js/app.js (diseño anterior):
+             app.js referencia estos elementos; existen OCULTOS para que
+             getElementById nunca devuelva null. La navegación real es el
+             menú lateral (switchView).
+        ============================================================ -->
+        <div id="compatLegacy" style="display:none !important;" aria-hidden="true">
+            <div class="tabs" id="tabsContainer" style="display: none;">
+                <button class="tab-btn active" type="button"
+                    onclick="if (typeof switchTab === 'function') switchTab('mensual', this)">📅 Matriz Global</button>
+                <button class="tab-btn" type="button"
+                    onclick="if (typeof switchTab === 'function') switchTab('diaria', this)">⏱️ Operación Diaria</button>
+            </div>
+            <div id="mensual" class="view-section"></div>
+            <div id="diaria" class="view-section"></div>
+        </div>
+
+        <script src="js/app.js"></script>
+
+    <!-- ============================================================
+         SCRIPT DEL PANEL IA V21 (autónomo, no interfiere con app.js)
+    ============================================================ -->
+    <script>
+    (function () {
+        'use strict';
+        let iaChartInstance = null;
+        let iaPredicciones = [];   // hoja 'Predicciones Horarias'
+        const $ = id => document.getElementById(id);
+        const fmt = n => Number(n).toLocaleString('es-CO');
+
+        // Escucha ADICIONAL sobre el mismo input que ya usa app.js
+        document.addEventListener('DOMContentLoaded', function () {
+            const inp = $('fileAnalisis');
+            if (inp) inp.addEventListener('change', manejarArchivoIA, false);
+        });
+
+        function manejarArchivoIA(e) {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function (ev) {
+                try {
+                    const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
+                    renderPanelIA(wb);
+                } catch (err) {
+                    console.error('[IA V21] Error leyendo el archivo:', err);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function hojaAJson(wb, nombre) {
+            const real = wb.SheetNames.find(n => n.trim().toLowerCase() === nombre.toLowerCase());
+            if (!real) return null;
+            return XLSX.utils.sheet_to_json(wb.Sheets[real], { defval: '' });
+        }
+
+        function renderPanelIA(wb) {
+            const metricas   = hojaAJson(wb, 'Métricas Modelo') || hojaAJson(wb, 'Metricas Modelo');
+            const atipicos   = hojaAJson(wb, 'Días Atípicos Históricos') || hojaAJson(wb, 'Dias Atipicos Historicos');
+            const eficiencia = hojaAJson(wb, 'Eficiencia Cajas');
+            const segmentos  = hojaAJson(wb, 'Capacidad Segmentada');
+            const equidad    = hojaAJson(wb, 'Equidad Movimientos');
+            const topDinero  = hojaAJson(wb, 'Top Días en Dinero') || hojaAJson(wb, 'Top Dias en Dinero');
+            const desempeno  = hojaAJson(wb, 'Desempeño Modelo') || hojaAJson(wb, 'Desempeno Modelo');
+            const autoajuste = hojaAJson(wb, 'Autoajuste');
+            const predicciones = hojaAJson(wb, 'Predicciones Horarias');
+
+            const aviso = $('iaAvisoFormato');
+            if (!predicciones || !metricas) {
+                aviso.style.display = 'block';
+                aviso.textContent = '⚠️ Este archivo fue generado con una versión anterior. Genera "Analisis_Prioridad_IA.xlsx" con V26.PY para ver métricas del modelo, eficiencia por caja y predicciones del doble Random Forest.';
+            } else {
+                aviso.style.display = 'none';
+            }
+
+            renderMetricas(metricas || []);
+            renderSegmentos(segmentos || []);
+            renderEquidad(equidad || []);
+            renderAtipicos(atipicos || []);
+            renderTopDinero(topDinero || []);
+            renderDesempeno(desempeno || []);
+            renderFactoresAuto(autoajuste || []);
+            renderEficiencia(eficiencia || []);
+
+            iaPredicciones = predicciones || [];
+            // Compartir con app.js: el informe de Cumplimiento cruza sus faltantes
+            // con la demanda/meta de la IA para justificar cada hora incumplida.
+            window.IA_PREDICCIONES = iaPredicciones;
+            if (typeof renderCumplimiento === 'function') renderCumplimiento();
+            poblarSelectorDias();
+            poblarSelectorDiasTiempos();
+            renderTiempos();
+        }
+
+        // ================= MÓDULO DE TIEMPOS Y MEJORA (colas Erlang-C) =================
+        // Probabilidad de que un cliente que llega tenga que esperar (Erlang-C).
+        function _erlangC(c, a) {
+            if (c <= 0) return 1;
+            let rho = a / c;
+            if (rho >= 1) return 1;                 // saturado
+            let sum = 0, term = 1;                  // term = a^0/0! = 1
+            for (let k = 0; k < c; k++) {
+                if (k > 0) term = term * a / k;
+                sum += term;
+            }
+            let ac = term * a / c;                  // a^c / c!
+            let num = ac / (1 - rho);
+            return num / (sum + num);
+        }
+        // Espera promedio en la fila (segundos) con c cajas. Infinity si se satura.
+        function _esperaSeg(lambda, promSeg, c) {
+            if (lambda <= 0) return 0;
+            if (!promSeg || promSeg <= 0) promSeg = 111;
+            let mu = 3600 / promSeg;                // clientes/hora por caja
+            let a = lambda / mu;                    // carga ofrecida (Erlangs)
+            if (c <= a) return Infinity;            // la fila crece sin control
+            let pw = _erlangC(c, a);
+            let wqHoras = pw / (c * mu - lambda);
+            return wqHoras * 3600;
+        }
+        // FILA BASE: en la tienda siempre hay clientes en fila. La espera mostrada
+        // asume que al llegar hay BASE_FILA clientes delante, además de la espera
+        // aleatoria de la teoría de filas (Erlang-C). Así nunca da "sin espera".
+        const BASE_FILA = 10;
+
+        // Espera TOTAL (seg) = drenar la fila base (10/c clientes por caja, cada
+        // uno tarda promSeg) + espera aleatoria Erlang-C en estado estable.
+        function _esperaTotalSeg(lambda, promSeg, c) {
+            if (!promSeg || promSeg <= 0) promSeg = 111;
+            if (c <= 0) return Infinity;
+            const base = (BASE_FILA / c) * promSeg;
+            if (lambda <= 0) return base;
+            const wq = _esperaSeg(lambda, promSeg, c);
+            return (wq === Infinity) ? Infinity : (wq + base);
+        }
+
+        // Mínimo de cajas para que la espera total quede <= objetivoSeg.
+        function _cajasParaObjetivo(lambda, promSeg, objetivoSeg, desde) {
+            for (let c = Math.max(1, desde || 1); c <= 60; c++) {
+                const e = _esperaTotalSeg(lambda, promSeg, c);
+                if (e !== Infinity && e <= objetivoSeg) return c;
+            }
+            return null;
+        }
+
+        function _fmtEspera(seg) {
+            if (seg === Infinity) return '<span style="color:#c0392b; font-weight:bold;">🔴 fila crece</span>';
+            if (seg <= 0) return '—';
+            let m = Math.floor(seg / 60), s = Math.round(seg % 60);
+            let txt = m > 0 ? `${m}m ${s}s` : `${s}s`;
+            let col = seg <= 180 ? '#27ae60' : (seg <= 420 ? '#e67e22' : '#c0392b');
+            return `<span style="color:${col}; font-weight:bold;">${txt}</span>`;
+        }
+
+        function poblarSelectorDiasTiempos() {
+            const sel = $('tiemposDaySelector');
+            if (!sel) return;
+            sel.innerHTML = '';
+            sel.onchange = renderTiempos;
+            if (!iaPredicciones.length) return;
+            const fechas = [...new Set(iaPredicciones.map(r => r['Fecha']))];
+            fechas.forEach(f => {
+                const dia = (iaPredicciones.find(r => r['Fecha'] === f) || {})['Dia'] || '';
+                const opt = document.createElement('option');
+                opt.value = f; opt.textContent = f + ' (' + dia + ')';
+                sel.appendChild(opt);
+            });
+        }
+
+        window.renderTiempos = function renderTiempos() {
+            const tabla = $('tiemposTabla');
+            const cards = $('tiemposCards');
+            const aviso = $('tiemposAviso');
+            if (!tabla || !cards) return;
+            if (!iaPredicciones.length) {
+                cards.innerHTML = '';
+                tabla.innerHTML = '<tr><td style="padding:12px; color:#7f8c8d;">Carga el archivo de Análisis IA (Opcional) generado por el PY para ver los tiempos de espera.</td></tr>';
+                if (aviso) aviso.textContent = '';
+                return;
+            }
+            const promSeg = Number(iaPredicciones[0]['Prom_Seg_Transaccion']) || 111;
+            const promBase = Number(iaPredicciones[0]['Prom_Seg_Base']) || null;
+            const promAct = Number(iaPredicciones[0]['Prom_Seg_Actual']) || null;
+            const anioBase = iaPredicciones[0]['Anio_Base_T'] || '';
+            const anioAct = iaPredicciones[0]['Anio_Actual_T'] || '';
+
+            // ---- Tarjetas ----
+            let cardsHtml = '';
+            function card(icono, titulo, valor, sub, color) {
+                return `<div style="flex:1; min-width:180px; background:#f8f9fa; border-top:4px solid ${color}; border-radius:8px; padding:12px; text-align:center; box-shadow:0 2px 5px rgba(0,0,0,0.05);">
+                    <div style="font-size:22px;">${icono}</div>
+                    <div style="font-size:11px; color:#7f8c8d; margin:4px 0;">${titulo}</div>
+                    <div style="font-size:18px; font-weight:bold; color:${color};">${valor}</div>
+                    <div style="font-size:10px; color:#95a5a6; margin-top:3px;">${sub || ''}</div></div>`;
+            }
+            if (promBase && promAct) {
+                let dif = (promBase - promAct) / promBase * 100;
+                let mejora = dif >= 0;
+                cardsHtml += card('⏳', `Tiempo atención ${anioBase}`, promBase.toFixed(0) + ' seg', 'por cliente', '#7f8c8d');
+                cardsHtml += card('⚡', `Tiempo atención ${anioAct}`, promAct.toFixed(0) + ' seg', 'por cliente', mejora ? '#27ae60' : '#c0392b');
+                cardsHtml += card(mejora ? '📉' : '📈', mejora ? 'Mejora del servicio' : 'Aumentó el tiempo',
+                    (mejora ? '−' : '+') + Math.abs(dif).toFixed(1) + '%', mejora ? 'más rápido que el año pasado' : 'más lento que el año pasado',
+                    mejora ? '#27ae60' : '#c0392b');
+            } else {
+                cardsHtml += card('⏳', 'Tiempo de atención', promSeg.toFixed(0) + ' seg', 'por cliente (actual)', '#2980b9');
+            }
+
+            // ---- Tabla por hora del día seleccionado ----
+            const fecha = $('tiemposDaySelector').value || iaPredicciones[0]['Fecha'];
+            const rows = iaPredicciones.filter(r => r['Fecha'] === fecha)
+                                       .sort((a, b) => Number(a['Hora']) - Number(b['Hora']));
+
+            const mu = 3600 / promSeg;   // clientes/hora que atiende UNA caja
+            let sumEsperaProg = 0, sumEsperaTodos = 0, nHoras = 0, picoEsperaProg = 0, horaPico = '';
+            let recPico = null;          // recomendación en la hora de mayor espera
+            let html = '<thead><tr style="background:#4a235a; color:white; position:sticky; top:0;">' +
+                '<th style="padding:6px;">Hora</th><th>Facturas/h</th><th>Cajas Prog.</th>' +
+                '<th title="Utilización ρ = λ / (c·μ)">Uso ρ</th>' +
+                '<th title="Probabilidad de que un cliente tenga que esperar (Erlang-C)">P(esperar)</th>' +
+                '<th title="Erlang-C + fila base de ' + BASE_FILA + ' clientes">Espera cliente</th>' +
+                '<th>Todo el personal</th>' +
+                '<th style="background:#1a5276;" title="Cajas necesarias para reducir la espera actual a la MITAD">🎯 Cajas p/ mitad</th></tr></thead><tbody>';
+
+            rows.forEach(r => {
+                let lambda = Number(r['Facturas_Pred']) || 0;
+                let cProg = (Number(r['Cajeros_Prog']) || 0) + (Number(r['Emergentes']) || 0);
+                let cTodos = cProg + (Number(r['Empacadores_Restantes']) || 0);
+                let eProg = _esperaTotalSeg(lambda, promSeg, cProg);
+                let eTodos = _esperaTotalSeg(lambda, promSeg, cTodos);
+                let rho = (cProg > 0) ? (lambda / (cProg * mu)) : Infinity;
+                let pw = (cProg > 0 && lambda > 0 && rho < 1) ? _erlangC(cProg, lambda / mu) : (lambda > 0 ? 1 : 0);
+
+                // 🎯 Recomendación: cajas para dejar la espera EN LA MITAD de la actual
+                let recTxt = '—', recCajas = null;
+                if (lambda > 0) {
+                    if (eProg === Infinity) {
+                        recCajas = _cajasParaObjetivo(lambda, promSeg, 300, 1);   // estabilizar: ≤ 5 min
+                        recTxt = recCajas
+                            ? `<b>${recCajas}</b> cajas <span style="color:#c0392b;">(estabiliza, ≤5 min)</span>`
+                            : '—';
+                    } else {
+                        recCajas = _cajasParaObjetivo(lambda, promSeg, eProg / 2, cProg + 1);
+                        if (recCajas) {
+                            let eNueva = _esperaTotalSeg(lambda, promSeg, recCajas);
+                            recTxt = `<b>${recCajas}</b> cajas <span style="color:#27ae60;">(+${recCajas - cProg})</span> → ${_fmtEspera(eNueva)}`;
+                        }
+                    }
+                }
+
+                let mejoraTodos = '';
+                if (eProg !== Infinity && eTodos !== Infinity && eProg > 1) {
+                    let baja = (eProg - eTodos) / eProg * 100;
+                    if (baja > 1) mejoraTodos = ` <span style="color:#27ae60; font-size:10px;">(−${baja.toFixed(0)}%)</span>`;
+                } else if (eProg === Infinity && eTodos !== Infinity) {
+                    mejoraTodos = ' <span style="color:#27ae60; font-size:10px;">(estabiliza)</span>';
+                }
+
+                if (eProg !== Infinity) {
+                    sumEsperaProg += eProg;
+                    if (eProg > picoEsperaProg) { picoEsperaProg = eProg; horaPico = r['Hora'] + ':00'; recPico = { cProg, recCajas, eProg }; }
+                }
+                if (eTodos !== Infinity) sumEsperaTodos += eTodos;
+                nHoras++;
+                let esPico = Number(r['Es_Pico']) === 1;
+                let rhoTxt = (rho === Infinity) ? '—'
+                    : `<span style="color:${rho < 0.7 ? '#27ae60' : (rho < 0.9 ? '#e67e22' : '#c0392b')}; font-weight:bold;">${(rho * 100).toFixed(0)}%</span>`;
+                html += `<tr style="border-bottom:1px solid #eee; background:${esPico ? '#fdf6ff' : '#fff'};">
+                    <td style="padding:5px; font-weight:${esPico ? 'bold' : 'normal'};">${esPico ? '🔺' : ''}${r['Hora']}:00</td>
+                    <td style="text-align:center;">${Math.round(lambda)}</td>
+                    <td style="text-align:center; font-weight:bold;">${cProg}</td>
+                    <td style="text-align:center;">${rhoTxt}</td>
+                    <td style="text-align:center;">${lambda > 0 ? (pw * 100).toFixed(0) + '%' : '—'}</td>
+                    <td style="text-align:center;">${_fmtEspera(eProg)}</td>
+                    <td style="text-align:center;">${cTodos} → ${_fmtEspera(eTodos)}${mejoraTodos}</td>
+                    <td style="text-align:center; background:#f4f9ff;">${recTxt}</td></tr>`;
+            });
+            tabla.innerHTML = html + '</tbody>';
+
+            // Tarjetas resumen del día
+            if (nHoras > 0) {
+                let promProg = sumEsperaProg / nHoras;
+                let promTodos = sumEsperaTodos / nHoras;
+                cardsHtml += card('🕒', 'Espera promedio (programado)', (promProg / 60).toFixed(1).replace('.', ',') + ' min',
+                    'este día · peor hora ' + horaPico + ' (' + (picoEsperaProg / 60).toFixed(1).replace('.', ',') + ' min)', '#8e44ad');
+                cardsHtml += card('👥', 'Espera con todo el personal', (promTodos / 60).toFixed(1).replace('.', ',') + ' min',
+                    'si todos van a caja', '#16a085');
+                if (recPico && recPico.recCajas) {
+                    cardsHtml += card('🎯', 'Para bajar la espera a la MITAD en la peor hora (' + horaPico + ')',
+                        recPico.recCajas + ' cajas (+' + (recPico.recCajas - recPico.cProg) + ')',
+                        'hoy: ' + recPico.cProg + ' cajas · espera ' + (recPico.eProg / 60).toFixed(1).replace('.', ',') + ' min', '#c0392b');
+                }
+            }
+            cards.innerHTML = cardsHtml;
+            if (aviso) aviso.innerHTML =
+                '<b>Teoría de filas (M/M/c · Erlang-C):</b> cada caja atiende μ = ' + mu.toFixed(1) + ' clientes/hora (' + promSeg.toFixed(0) + ' seg/cliente). ' +
+                '<b>Uso ρ</b> = λ/(c·μ) es qué tan ocupadas están las cajas. <b>P(esperar)</b> = probabilidad de que un cliente haga fila (Erlang-C). ' +
+                'La <b>espera del cliente</b> = espera aleatoria Erlang-C <u>más</u> el tiempo de drenar una <b>fila base de ' + BASE_FILA + ' clientes</b> (' + BASE_FILA + '/c × tiempo de atención) — por eso nunca da "sin espera": refleja la fila real de la tienda. ' +
+                '<b>🎯 Cajas p/ mitad</b> = cuántas cajas se necesitan esa hora para dejar la espera actual en la mitad. <b>🔴 fila crece</b> = la demanda supera la capacidad y la fila no se estabiliza.';
+        };
+
+        window.poblarSelectorDiasTiempos = poblarSelectorDiasTiempos;
+
+        // ---------- Tarjetas de métricas ----------
+        function renderMetricas(rows) {
+            const cont = $('iaMetricCards');
+            cont.innerHTML = '';
+            if (!rows.length) return;
+            const buscar = clave => {
+                const r = rows.find(x => String(x['Métrica'] || x['Metrica'] || '').includes(clave));
+                return r ? String(r['Valor']) : null;
+            };
+            const cards = [
+                { icono: '🎯', titulo: 'Precisión Unidades (R²)', valor: buscar('Unidades) — R²'), color: '#2980b9' },
+                { icono: '📉', titulo: 'Error Medio Unidades',    valor: buscar('Unidades) — MAE'), color: '#8e44ad' },
+                { icono: '🧮', titulo: 'Precisión Cajas (R²)',    valor: buscar('Cajas) — R²'),     color: '#16a085' },
+                { icono: '⚡', titulo: 'Capacidad REAL x Caja',   valor: buscar('Capacidad REAL'),  color: '#e67e22' },
+                { icono: '🕒', titulo: 'Capacidad Efectiva',      valor: buscar('Capacidad EFECTIVA'), color: '#c0392b' },
+                { icono: '🗄️', titulo: 'Registros de Historial',  valor: buscar('Registros históricos') || buscar('Registros'), color: '#2c3e50' },
+            ];
+            cards.forEach(c => {
+                if (!c.valor) return;
+                const div = document.createElement('div');
+                div.style.cssText = 'flex:1; min-width:150px; background:#f8f9fa; border-top:4px solid ' + c.color +
+                    '; border-radius:8px; padding:12px; text-align:center; box-shadow:0 2px 5px rgba(0,0,0,0.05);';
+                div.innerHTML = '<div style="font-size:22px;">' + c.icono + '</div>' +
+                    '<div style="font-size:11px; color:#7f8c8d; margin:4px 0;">' + c.titulo + '</div>' +
+                    '<div style="font-size:16px; font-weight:bold; color:' + c.color + ';">' + c.valor + '</div>';
+                cont.appendChild(div);
+            });
+            // Importancia de criterios
+            const imp = buscar('Importancia');
+            if (imp) {
+                const div = document.createElement('div');
+                div.style.cssText = 'flex-basis:100%; background:#eef6fb; border-left:5px solid #2980b9; border-radius:6px; padding:10px 14px; font-size:12px; color:#2c3e50;';
+                div.innerHTML = '<strong>Peso de cada criterio en el modelo:</strong> ' + imp;
+                cont.appendChild(div);
+            }
+        }
+
+        // ---------- Selector de días + gráfico ----------
+        function poblarSelectorDias() {
+            const sel = $('iaDaySelector');
+            sel.innerHTML = '';
+            sel.onchange = renderChartDia;
+            if (!iaPredicciones.length) { renderChartDia(); return; }
+            const fechas = [...new Set(iaPredicciones.map(r => r['Fecha']))];
+            fechas.forEach(f => {
+                const dia = (iaPredicciones.find(r => r['Fecha'] === f) || {})['Dia'] || '';
+                const opt = document.createElement('option');
+                opt.value = f;
+                opt.textContent = f + ' (' + dia + ')';
+                sel.appendChild(opt);
+            });
+            renderChartDia();
+        }
+
+        function renderChartDia() {
+            const canvas = $('iaChartV21');
+            if (iaChartInstance) { iaChartInstance.destroy(); iaChartInstance = null; }
+            if (!iaPredicciones.length) return;
+
+            const fecha = $('iaDaySelector').value || iaPredicciones[0]['Fecha'];
+            const rows = iaPredicciones.filter(r => r['Fecha'] === fecha)
+                                       .sort((a, b) => Number(a['Hora']) - Number(b['Hora']));
+            const labels = rows.map(r => (Number(r['Es_Pico']) === 1 ? '🔺' : '🔻') + r['Hora'] + ':00');
+            const esAtipico = rows.some(r => Number(r['Atipico']) !== 0);
+            const nomFest = (rows.find(r => r['Festivo']) || {})['Festivo'] || '';
+            const diaBase = (rows.find(r => r['Dia_Base_Ref']) || {})['Dia_Base_Ref'] || '';
+            const simBase = (rows.find(r => r['Similitud_Base'] !== '' && r['Similitud_Base'] !== undefined) || {})['Similitud_Base'];
+            const badge = $('iaCompararBadge');
+            if (badge) {
+                if (diaBase) {
+                    const totalBase = rows.reduce((acc, r) => acc + (Number(r['Real_Anio_Base']) || 0), 0);
+                    badge.style.display = 'block';
+                    badge.innerHTML = '📅 <strong>Comparado con la venta real del ' + diaBase + '</strong> (día análogo del año anterior' +
+                        (simBase ? ', similitud ' + Math.round(Number(simBase) * 100) + '%' : '') + ')' +
+                        (totalBase > 0 ? ' · Ese día se vendieron <strong>' + fmt(Math.round(totalBase)) + ' unds</strong> — línea punteada gris en el gráfico.' : '');
+                } else {
+                    badge.style.display = 'block';
+                    badge.style.background = '#fff3cd';
+                    badge.style.borderLeftColor = '#f1c40f';
+                    badge.innerHTML = '⚠️ Este archivo no trae la venta real del año anterior. Genera "Analisis_Prioridad_IA.xlsx" con el V25.PY actualizado.';
+                }
+            }
+
+            iaChartInstance = new Chart(canvas.getContext('2d'), {
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            type: 'bar', label: '🎯 Cajas Meta (IA)',
+                            data: rows.map(r => Number(r['Cajas_Meta'])),
+                            backgroundColor: 'rgba(230,126,34,0.75)', yAxisID: 'yCajas',
+                            stack: 'meta', order: 3
+                        },
+                        {
+                            type: 'bar', label: '💼 Cajeros Titulares',
+                            data: rows.map(r => Number(r['Cajeros_Prog'])),
+                            backgroundColor: 'rgba(41,128,185,0.85)', yAxisID: 'yCajas',
+                            stack: 'personal', order: 3
+                        },
+                        {
+                            type: 'bar', label: '🟢 Emergentes',
+                            data: rows.map(r => Number(r['Emergentes'])),
+                            backgroundColor: 'rgba(39,174,96,0.85)', yAxisID: 'yCajas',
+                            stack: 'personal', order: 3
+                        },
+                        {
+                            type: 'bar', label: '👥 Resto del Personal',
+                            data: rows.map(r => Number(r['Empacadores_Restantes'] || 0)),
+                            backgroundColor: 'rgba(127,140,141,0.75)', yAxisID: 'yCajas',
+                            stack: 'resto', order: 3
+                        },
+                        {
+                            type: 'line', label: '📦 Unidades Predichas (IA)',
+                            data: rows.map(r => Number(r['Pred_Unds'])),
+                            borderColor: '#8e44ad', backgroundColor: 'rgba(142,68,173,0.10)',
+                            fill: true, tension: 0.35, yAxisID: 'yUnds', order: 1, pointRadius: 3
+                        },
+                        {
+                            type: 'line', label: '🕰️ Venta REAL Año Anterior (día análogo)',
+                            data: rows.map(r => r['Real_Anio_Base'] !== '' && r['Real_Anio_Base'] !== undefined ? Number(r['Real_Anio_Base']) : null),
+                            borderColor: '#7f8c8d', borderDash: [7, 4], borderWidth: 2,
+                            fill: false, tension: 0.35, yAxisID: 'yUnds', order: 2, pointRadius: 2
+                        },
+                        {
+                            type: 'line', label: '📊 Prom. HISTÓRICO de cajas abiertas (este día/hora)',
+                            data: rows.map(r => r['Cajas_Prom_Hist'] !== '' && r['Cajas_Prom_Hist'] !== undefined ? Number(r['Cajas_Prom_Hist']) : null),
+                            borderColor: '#c0392b', borderDash: [4, 3], borderWidth: 2, spanGaps: true,
+                            fill: false, stepped: true, yAxisID: 'yCajas', order: 0, pointRadius: 2,
+                            pointBackgroundColor: '#c0392b'
+                        },
+                        {
+                            type: 'line', label: '🛡️ Piso del PERFIL de cobertura (% de la batería)',
+                            data: rows.map(r => r['Perfil_Piso'] !== '' && r['Perfil_Piso'] !== undefined ? Number(r['Perfil_Piso']) : null),
+                            borderColor: '#16a085', borderDash: [2, 2], borderWidth: 2, spanGaps: true,
+                            fill: false, stepped: true, yAxisID: 'yCajas', order: 0, pointRadius: 2,
+                            pointBackgroundColor: '#16a085'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    onClick: function (evt, elements, chart) {
+                        let idx = (elements && elements.length) ? elements[0].index : null;
+                        if (idx === null) {
+                            const pts = chart.getElementsAtEventForMode(evt, 'index', { intersect: false }, true);
+                            if (pts.length) idx = pts[0].index;
+                        }
+                        if (idx === null || !rows[idx]) return;
+                        mostrarJustificacionCajas(rows[idx]);
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: (nomFest ? '🎉 FESTIVO: ' + nomFest + ' — ' : '') + (esAtipico ? '⚠️ DÍA ATÍPICO' : 'Cobertura del día (🔺 = hora pico)') + (diaBase ? ' · Comparado con el ' + diaBase + ' del año base' : ''),
+                            color: (esAtipico || nomFest) ? '#c0392b' : '#2c3e50'
+                        },
+                        legend: { position: 'bottom' }
+                    },
+                    scales: {
+                        x:      { stacked: true },
+                        yCajas: { position: 'left', beginAtZero: true, stacked: true, title: { display: true, text: 'Cajas / Personas' } },
+                        yUnds:  { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, title: { display: true, text: 'Unidades' } }
+                    }
+                }
+            });
+            renderTablaCriticas();
+        }
+
+        // ---------- Justificación de la meta de cajas (click en el gráfico) ----------
+        function mostrarJustificacionCajas(r) {
+            const box = $('iaJustifBox');
+            if (!box) return;
+            const meta = r['Cajas_Meta'];
+            const prom = (r['Cajas_Prom_Hist'] !== '' && r['Cajas_Prom_Hist'] !== undefined) ? r['Cajas_Prom_Hist'] : null;
+            const banda = r['Banda_Historica'] || '';
+            const justif = r['Justificacion'] || 'Sin justificación registrada para esta hora (archivo de análisis de una versión anterior — regenera con el PY actualizado).';
+            let comp = '';
+            if (prom !== null) {
+                const dif = Number(meta) - Number(prom);
+                const flecha = Math.abs(dif) < 0.75 ? '≈ igual al promedio' : (dif > 0 ? '▲ ' + dif.toFixed(1) + ' sobre el promedio' : '▼ ' + Math.abs(dif).toFixed(1) + ' bajo el promedio');
+                comp = `<div style="display:flex; gap:14px; flex-wrap:wrap; margin-bottom:6px;">
+                    <span><strong>Meta IA:</strong> ${meta} cajas</span>
+                    <span><strong>Promedio histórico:</strong> ${prom} cajas</span>
+                    ${banda ? `<span><strong>Rango usual:</strong> ${banda}</span>` : ''}
+                    <span style="color:${Math.abs(dif) < 0.75 ? '#27ae60' : '#e67e22'};"><strong>${flecha}</strong></span>
+                </div>`;
+            }
+            box.innerHTML = `<div style="font-weight:bold; margin-bottom:6px;">🕐 ${r['Fecha']} (${r['Dia']}) · ${r['Hora']}:00</div>` +
+                            comp + `<div>${justif}</div>`;
+            box.style.display = 'block';
+        }
+
+        // ---------- Tabla horas críticas ----------
+        function renderTablaCriticas() {
+            const tabla = $('iaTablaCriticas');
+            const criticas = iaPredicciones.filter(r => Number(r['Faltante']) > 0)
+                                           .sort((a, b) => Number(b['Faltante']) - Number(a['Faltante']));
+            if (!criticas.length) {
+                tabla.innerHTML = '<tr><td style="padding:12px; color:#27ae60;">✅ Sin horas críticas: la planta cubre toda la demanda predicha.</td></tr>';
+                return;
+            }
+            let html = '<thead><tr style="background:#2c3e50; color:white; position:sticky; top:0;">' +
+                '<th style="padding:6px;">Fecha</th><th>Día</th><th>Hora</th><th>Seg.</th><th>Unds Pred.</th><th>Cajas Meta</th><th>Programados</th><th>Faltan</th></tr></thead><tbody>';
+            criticas.slice(0, 60).forEach(r => {
+                html += '<tr style="border-bottom:1px solid #eee; background:' + (Number(r['Faltante']) >= 3 ? '#fdedec' : '#fff') + ';">' +
+                    '<td style="padding:5px;">' + r['Fecha'] + '</td><td>' + r['Dia'] + '</td><td>' + r['Hora'] + ':00</td>' +
+                    '<td style="text-align:center;">' + (Number(r['Es_Pico']) === 1 ? '🔺' : '🔻') + '</td>' +
+                    '<td>' + fmt(r['Pred_Unds']) + '</td><td style="text-align:center;">' + r['Cajas_Meta'] + '</td>' +
+                    '<td style="text-align:center;">' + (Number(r['Cajeros_Prog']) + Number(r['Emergentes'])) + '</td>' +
+                    '<td style="text-align:center; font-weight:bold; color:#c0392b;">' + r['Faltante'] + '</td></tr>';
+            });
+            tabla.innerHTML = html + '</tbody>';
+        }
+
+        // ---------- Tabla eficiencia ----------
+        function renderEficiencia(rows) {
+            const tabla = $('iaTablaEficiencia');
+            if (!rows.length || rows[0]['Mensaje']) {
+                tabla.innerHTML = '<tr><td style="padding:12px; color:#7f8c8d;">Sin datos de detalle por caja en el historial.</td></tr>';
+                return;
+            }
+            let html = '<thead><tr style="background:#145a32; color:white; position:sticky; top:0;">' +
+                '<th style="padding:6px;">#</th><th>Caja</th><th>Unds/h Activa</th><th>Prom. Transacción</th><th>h Activas/Día</th></tr></thead><tbody>';
+            rows.forEach((r, i) => {
+                const medalla = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (r['Ranking Eficiencia'] || i + 1);
+                const esBaja = i >= rows.length - 3 && rows.length > 6;
+                html += '<tr style="border-bottom:1px solid #eee; background:' + (esBaja ? '#fef9e7' : '#fff') + ';">' +
+                    '<td style="padding:5px; text-align:center;">' + medalla + '</td>' +
+                    '<td>' + r['Caja'] + '</td>' +
+                    '<td style="text-align:center; font-weight:bold;">' + fmt(r['Unds_x_Hora_Activa']) + '</td>' +
+                    '<td style="text-align:center;">' + fmt(r['Prom_Transaccion_seg']) + ' seg</td>' +
+                    '<td style="text-align:center;">' + fmt(r['Horas_Activas_Prom_Dia']) + '</td></tr>';
+            });
+            tabla.innerHTML = html + '</tbody>';
+        }
+
+        // ---------- Pronóstico vs Real del Año Actual ----------
+        function renderDesempeno(rows) {
+            const cards = $('iaDesempenoCards');
+            const tabla = $('iaTablaDesempeno');
+            if (!cards || !tabla) return;
+            cards.innerHTML = '';
+            if (!rows.length || rows[0]['Mensaje']) {
+                tabla.innerHTML = '<tr><td style="padding:12px; color:#7f8c8d;">' +
+                    ((rows[0] && rows[0]['Mensaje']) || 'Aún no hay datos del año actual: deposita los archivos en la carpeta "Año Actual" y el modelo se recalibrará solo.') + '</td></tr>';
+                return;
+            }
+            const dias = rows.filter(r => String(r['Fecha']).match(/^\d{4}-\d{2}-\d{2}$/));
+            const resumen = {};
+            rows.filter(r => !String(r['Fecha']).match(/^\d{4}-\d{2}-\d{2}$/)).forEach(r => {
+                resumen[String(r['Fecha'])] = { err: String(r['Error %'] || ''), ex: r['Exactitud %'] };
+            });
+            const tieneAjuste = dias.length && dias[0]['Pronóstico Ajustado (Unds)'] !== undefined;
+            const kpis = [];
+            const res = resumen['— RESUMEN —'];
+            if (res) kpis.push({ icono: '🎯', titulo: 'Exactitud Global del Pronóstico',
+                                 valor: (res.ex !== '' && res.ex !== undefined ? res.ex + '%' : '-'), sub: res.err, color: '#27ae60' });
+            const desv = resumen['Desviación sistemática'];
+            if (desv) kpis.push({ icono: '📐', titulo: 'Desviación Sistemática', valor: desv.err.split(' ')[0], sub: desv.err, color: '#e67e22' });
+            const fac = resumen['Factor de calibración aplicado'];
+            if (fac) kpis.push({ icono: '🔧', titulo: 'Factor de Calibración', valor: fac.err.split(' ')[0], sub: fac.err.indexOf('jerárquico') > -1 ? 'Jerárquico: día de semana × hora' : 'Más peso a los días recientes', color: '#8e44ad' });
+            const mez = resumen['Mezcla Análogos/RF elegida'];
+            if (mez) kpis.push({ icono: '🧪', titulo: 'Mezcla Auto-Elegida', valor: mez.err.split(' ')[0] + ' análogos', sub: mez.err, color: '#16a085' });
+            kpis.push({ icono: '📅', titulo: 'Días Reales Evaluados', valor: dias.length, sub: 'Backtest honesto (sin ver el futuro)', color: '#2980b9' });
+            kpis.forEach(c => {
+                const div = document.createElement('div');
+                div.style.cssText = 'flex:1; min-width:170px; background:#f8f9fa; border-top:4px solid ' + c.color +
+                    '; border-radius:8px; padding:12px; text-align:center; box-shadow:0 2px 5px rgba(0,0,0,0.05);';
+                div.innerHTML = '<div style="font-size:22px;">' + c.icono + '</div>' +
+                    '<div style="font-size:11px; color:#7f8c8d; margin:4px 0;">' + c.titulo + '</div>' +
+                    '<div style="font-size:18px; font-weight:bold; color:' + c.color + ';">' + c.valor + '</div>' +
+                    '<div style="font-size:10px; color:#95a5a6; margin-top:3px;">' + (c.sub || '') + '</div>';
+                cards.appendChild(div);
+            });
+            let html = '<thead><tr style="background:#4a235a; color:white; position:sticky; top:0;">' +
+                '<th style="padding:6px;">Fecha</th><th>Día</th><th>Pronóstico (Unds)</th>' +
+                (tieneAjuste ? '<th>Pronóstico Ajustado</th>' : '') +
+                '<th>Venta Real</th><th>Error Abs.</th><th>Error %</th><th>Exactitud</th></tr></thead><tbody>';
+            dias.slice(0, 60).forEach(r => {
+                const ex = Number(r['Exactitud %']) || 0;
+                const color = ex >= 90 ? '#27ae60' : ex >= 75 ? '#f39c12' : '#c0392b';
+                html += '<tr style="border-bottom:1px solid #eee;">' +
+                    '<td style="padding:5px;">' + r['Fecha'] + '</td><td>' + (r['Día'] || '') + '</td>' +
+                    '<td style="text-align:right;">' + fmt(r['Pronóstico (Unds)']) + '</td>' +
+                    (tieneAjuste ? '<td style="text-align:right; font-weight:bold; color:#8e44ad;">' + fmt(r['Pronóstico Ajustado (Unds)']) + '</td>' : '') +
+                    '<td style="text-align:right; font-weight:bold;">' + fmt(r['Venta Real (Unds)']) + '</td>' +
+                    '<td style="text-align:right;">' + fmt(r['Error Absoluto']) + '</td>' +
+                    '<td style="text-align:center;">' + r['Error %'] + '%</td>' +
+                    '<td style="text-align:center; font-weight:bold; color:' + color + ';">' + ex + '%</td></tr>';
+            });
+            tabla.innerHTML = html + '</tbody>';
+        }
+
+        // ---------- Factores del autoajuste (día de semana) ----------
+        function renderFactoresAuto(rows) {
+            const cont = $('iaFactoresAuto');
+            if (!cont) return;
+            cont.innerHTML = '';
+            const dias = rows.filter(r => String(r['Segmento']).indexOf('Día:') === 0);
+            if (!dias.length) return;
+            let html = '<div style="font-size:12px; color:#7f8c8d; margin-bottom:6px;"><strong>🔧 Factores de corrección aprendidos por día de semana</strong> (x1.00 = sin corrección; el modelo los actualiza solo con cada dato real nuevo):</div>' +
+                '<div style="display:flex; gap:8px; flex-wrap:wrap;">';
+            dias.forEach(r => {
+                const f = Number(r['Factor de Corrección']) || 1;
+                const color = f > 1.03 ? '#c0392b' : f < 0.97 ? '#2980b9' : '#27ae60';
+                html += '<div style="flex:1; min-width:80px; text-align:center; background:#f8f9fa; border-radius:6px; padding:8px; border-top:3px solid ' + color + ';">' +
+                    '<div style="font-size:11px; color:#7f8c8d;">' + String(r['Segmento']).replace('Día: ', '') + '</div>' +
+                    '<div style="font-weight:bold; color:' + color + ';">x' + f.toFixed(2) + '</div></div>';
+            });
+            cont.innerHTML = html + '</div>';
+        }
+
+        // ---------- Capacidad segmentada Pico/Valle ----------
+        function renderSegmentos(rows) {
+            const cont = $('iaSegmentos');
+            cont.innerHTML = '';
+            if (!rows.length) return;
+            let html = '<h3 style="color:#2c3e50; font-size:15px; margin:0 0 8px 0;">🕒 Capacidad Real por Segmento (unds por caja-hora)</h3>' +
+                       '<div style="display:flex; gap:12px; flex-wrap:wrap;">';
+            rows.forEach(r => {
+                const esPico = String(r['Segmento']).includes('PICO');
+                const esFinde = String(r['Tipo de Día']).includes('Fin');
+                const color = esPico ? (esFinde ? '#c0392b' : '#e67e22') : (esFinde ? '#2980b9' : '#16a085');
+                html += '<div style="flex:1; min-width:210px; background:#f8f9fa; border-top:4px solid ' + color +
+                    '; border-radius:8px; padding:12px; box-shadow:0 2px 5px rgba(0,0,0,0.05);">' +
+                    '<div style="font-size:12px; font-weight:bold; color:#2c3e50;">' + r['Tipo de Día'] + ' · ' + r['Segmento'] + '</div>' +
+                    '<div style="font-size:22px; font-weight:bold; color:' + color + '; margin:4px 0;">' +
+                        fmt(r['Capacidad Efectiva (unds/caja-hora)']) + ' <span style="font-size:11px; color:#7f8c8d;">unds/caja-h</span></div>' +
+                    '<div style="font-size:11px; color:#7f8c8d;">Horas: ' + r['Horas'] + '</div>' +
+                    '</div>';
+            });
+            cont.innerHTML = html + '</div>';
+        }
+
+        // ---------- Equidad de movimientos ----------
+        function renderEquidad(rows) {
+            const tabla = $('iaTablaEquidad');
+            if (!tabla) return;
+            if (!rows.length) {
+                tabla.innerHTML = '<tr><td style="padding:12px; color:#7f8c8d;">Sin datos de equidad (archivo de versión anterior).</td></tr>';
+                return;
+            }
+            const maxAcum = Math.max.apply(null, rows.map(r => Number(r['Movs Acumulados (Historial)']) || 0)) || 1;
+            let html = '<thead><tr style="background:#1a5276; color:white; position:sticky; top:0;">' +
+                '<th style="padding:6px;">Empleado</th><th>Rol</th><th>Movs Este Período</th><th>Movs Acumulados</th><th>Carga Relativa</th></tr></thead><tbody>';
+            rows.forEach(r => {
+                const acum = Number(r['Movs Acumulados (Historial)']) || 0;
+                const pct = Math.round((acum / maxAcum) * 100);
+                html += '<tr style="border-bottom:1px solid #eee;">' +
+                    '<td style="padding:5px;">' + r['Nombre'] + '</td><td>' + r['Rol'] + '</td>' +
+                    '<td style="text-align:center;">' + (r['Movs Este Periodo'] || 0) + '</td>' +
+                    '<td style="text-align:center; font-weight:bold;">' + acum + '</td>' +
+                    '<td style="min-width:120px;"><div style="background:#eee; border-radius:4px; height:10px;">' +
+                    '<div style="width:' + pct + '%; background:' + (pct > 75 ? '#c0392b' : '#2980b9') + '; height:10px; border-radius:4px;"></div></div></td></tr>';
+            });
+            tabla.innerHTML = html + '</tbody>';
+        }
+
+        // ---------- Tabla días atípicos (V23: festivos + doble criterio) ----------
+        function renderAtipicos(rows) {
+            const tabla = $('iaTablaAtipicos');
+            if (!rows.length || rows[0]['Mensaje']) {
+                tabla.innerHTML = '<tr><td style="padding:12px; color:#7f8c8d;">' +
+                    ((rows[0] && rows[0]['Mensaje']) || 'Sin información de días atípicos.') + '</td></tr>';
+                return;
+            }
+            const esV23 = rows[0]['Festivo Asociado'] !== undefined;
+            if (esV23) {
+                let html = '<thead><tr style="background:#7d3c98; color:white; position:sticky; top:0;">' +
+                    '<th style="padding:6px;">Fecha</th><th>Día</th><th>Festivo Asociado</th><th>Detectado Por</th>' +
+                    '<th>Var. Unds</th><th>Var. Dinero</th><th>Valor Vendido</th><th>Proyección</th></tr></thead><tbody>';
+                rows.forEach(r => {
+                    const esFest = String(r['Festivo Asociado']).indexOf('fecha fija') === -1;
+                    html += '<tr style="border-bottom:1px solid #eee; background:' + (esFest ? '#f5eef8' : '#fff') + ';">' +
+                        '<td style="padding:5px;">' + r['Fecha Exacta'] + '</td><td>' + (r['Día Semana'] || '') + '</td>' +
+                        '<td style="font-weight:bold; color:' + (esFest ? '#7d3c98' : '#7f8c8d') + ';">' +
+                            (esFest ? '🎉 ' : '📌 ') + r['Festivo Asociado'] + '</td>' +
+                        '<td style="text-align:center;">' + (r['Detectado Por'] || '') + '</td>' +
+                        '<td style="text-align:center;">' + (r['Variación Unds'] || '-') + '</td>' +
+                        '<td style="text-align:center;">' + (r['Variación Dinero'] || '-') + '</td>' +
+                        '<td style="text-align:right;">' + (r['Valor Vendido ($)'] !== '-' && r['Valor Vendido ($)'] !== '' ? '$' + fmt(r['Valor Vendido ($)']) : '-') + '</td>' +
+                        '<td style="font-size:11px; color:#616a6b;">' + (r['Proyección'] || '') + '</td></tr>';
+                });
+                tabla.innerHTML = html + '</tbody>';
+            } else {
+                // Formato de versiones anteriores
+                let html = '<thead><tr style="background:#7d3c98; color:white; position:sticky; top:0;">' +
+                    '<th style="padding:6px;">Fecha</th><th>Tipo de Día</th><th>Venta Real</th><th>Promedio Normal</th><th>Variación</th><th>Clasificación</th></tr></thead><tbody>';
+                rows.forEach(r => {
+                    html += '<tr style="border-bottom:1px solid #eee;">' +
+                        '<td style="padding:5px;">' + r['Fecha Exacta'] + '</td><td>' + (r['Tipo de Día'] || '') + '</td>' +
+                        '<td style="text-align:right;">' + fmt(r['Venta Real (Unds)']) + '</td>' +
+                        '<td style="text-align:right;">' + fmt(r['Promedio Normal del Mes']) + '</td>' +
+                        '<td style="text-align:center; font-weight:bold;">' + (r['Variación'] || '') + '</td>' +
+                        '<td>' + (r['Clasificación (IA)'] || '') + '</td></tr>';
+                });
+                tabla.innerHTML = html + '</tbody>';
+            }
+        }
+
+        // ---------- Top días en dinero ----------
+        function renderTopDinero(rows) {
+            const tabla = $('iaTablaTopDinero');
+            if (!tabla) return;
+            if (!rows.length || rows[0]['Mensaje']) {
+                tabla.innerHTML = '<tr><td style="padding:12px; color:#7f8c8d;">' +
+                    ((rows[0] && rows[0]['Mensaje']) || 'Sin datos de dinero (archivo de versión anterior).') + '</td></tr>';
+                return;
+            }
+            const maxV = Math.max.apply(null, rows.map(r => Number(r['Valor Vendido ($)']) || 0)) || 1;
+            let html = '<thead><tr style="background:#145a32; color:white; position:sticky; top:0;">' +
+                '<th style="padding:6px;">#</th><th>Fecha</th><th>Día</th><th>Valor Vendido</th><th>Unidades</th><th>Var. Dinero</th><th></th></tr></thead><tbody>';
+            rows.forEach((r, i) => {
+                const v = Number(r['Valor Vendido ($)']) || 0;
+                const pct = Math.round((v / maxV) * 100);
+                const medalla = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (r['Puesto'] || i + 1);
+                html += '<tr style="border-bottom:1px solid #eee;">' +
+                    '<td style="padding:5px; text-align:center;">' + medalla + '</td>' +
+                    '<td>' + r['Fecha'] + '</td><td>' + (r['Día'] || '') + '</td>' +
+                    '<td style="text-align:right; font-weight:bold;">$' + fmt(v) + '</td>' +
+                    '<td style="text-align:right;">' + fmt(r['Unidades']) + '</td>' +
+                    '<td style="text-align:center;">' + (r['Variación Dinero'] || '-') + '</td>' +
+                    '<td style="min-width:100px;"><div style="background:#eee; border-radius:4px; height:10px;">' +
+                    '<div style="width:' + pct + '%; background:#27ae60; height:10px; border-radius:4px;"></div></div></td></tr>';
+            });
+            tabla.innerHTML = html + '</tbody>';
+        }
+    })();
+    </script>
+</body>
+</html>
